@@ -102,7 +102,10 @@ fun ContactLedgerScreen(
     var selectedTxForOptions by remember { mutableStateOf<Transaction?>(null) }
     val optionsSheetState = rememberModalBottomSheetState()
 
+    var showPdfPreview by remember { mutableStateOf(false) }
+
     val initials = contact.name.trim().split(" ")
+
         .mapNotNull { it.firstOrNull()?.toString() }
         .take(2)
         .joinToString("")
@@ -162,7 +165,7 @@ fun ContactLedgerScreen(
                             leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = colors.textSecondary) },
                             onClick = {
                                 showOverflowMenu = false
-                                ExportUtils.exportStatementPdf(context, contact, transactions)
+                                showPdfPreview = true
                             }
                         )
                         DropdownMenuItem(
@@ -345,7 +348,7 @@ fun ContactLedgerScreen(
                         )
                     }
                     IconButton(
-                        onClick = { ExportUtils.exportStatementPdf(context, contact, transactions) }
+                        onClick = { showPdfPreview = true }
                     ) {
                         Icon(
                             imageVector = Icons.Default.PictureAsPdf,
@@ -485,5 +488,17 @@ fun ContactLedgerScreen(
                 )
             }
         }
+    }
+
+    if (showPdfPreview) {
+        com.example.ui.components.PdfPreviewDialog(
+            contactName = contact.name,
+            transactions = transactions,
+            onDismiss = { showPdfPreview = false },
+            onDownload = {
+                showPdfPreview = false
+                ExportUtils.exportStatementPdf(context, contact, transactions)
+            }
+        )
     }
 }

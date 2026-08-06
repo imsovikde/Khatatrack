@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 data class Reminder(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val contactId: Long,
+    val contactId: Long? = null,
     val transactionId: Long? = null,
     val reminderDate: Long,
     val status: String = "PENDING", // PENDING, SENT, DISMISSED

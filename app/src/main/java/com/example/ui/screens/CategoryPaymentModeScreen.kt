@@ -59,7 +59,7 @@ import com.example.ui.viewmodel.KhataViewModel
 import kotlinx.coroutines.launch
 
 enum class ManagementTab {
-    CATEGORIES, PAYMENT_MODES
+    LEDGER_CATEGORIES, INCOME_EXPENSE_CATEGORIES, PAYMENT_MODES
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,7 +73,7 @@ fun CategoryPaymentModeScreen(
     val categories by viewModel.repository.allCategories.collectAsState(initial = emptyList())
     val paymentModes by viewModel.repository.allPaymentModes.collectAsState(initial = emptyList())
 
-    var activeTab by remember { mutableStateOf(ManagementTab.CATEGORIES) }
+    var activeTab by remember { mutableStateOf(ManagementTab.LEDGER_CATEGORIES) }
 
     var showAddCategorySheet by remember { mutableStateOf(false) }
     var showAddPaymentModeSheet by remember { mutableStateOf(false) }
@@ -112,12 +112,21 @@ fun CategoryPaymentModeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
-                    selected = activeTab == ManagementTab.CATEGORIES,
-                    onClick = { activeTab = ManagementTab.CATEGORIES },
-                    label = { Text("Categories (${categories.size})") },
+                    selected = activeTab == ManagementTab.LEDGER_CATEGORIES,
+                    onClick = { activeTab = ManagementTab.LEDGER_CATEGORIES },
+                    label = { Text("Ledger Tags") },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = colors.surfaceBorder,
+                        selectedLabelColor = colors.textPrimary
+                    )
+                )
+                FilterChip(
+                    selected = activeTab == ManagementTab.INCOME_EXPENSE_CATEGORIES,
+                    onClick = { activeTab = ManagementTab.INCOME_EXPENSE_CATEGORIES },
+                    label = { Text("Inc/Exp Categories") },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = colors.surfaceBorder,
                         selectedLabelColor = colors.textPrimary
@@ -126,7 +135,7 @@ fun CategoryPaymentModeScreen(
                 FilterChip(
                     selected = activeTab == ManagementTab.PAYMENT_MODES,
                     onClick = { activeTab = ManagementTab.PAYMENT_MODES },
-                    label = { Text("Payment Modes (${paymentModes.size})") },
+                    label = { Text("Modes") },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = colors.surfaceBorder,
                         selectedLabelColor = colors.textPrimary
@@ -139,7 +148,7 @@ fun CategoryPaymentModeScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (activeTab == ManagementTab.CATEGORIES) {
+                if (activeTab == ManagementTab.LEDGER_CATEGORIES || activeTab == ManagementTab.INCOME_EXPENSE_CATEGORIES) {
                     items(categories, key = { "cat_${it.id}" }) { category ->
                         CategoryRow(
                             category = category,

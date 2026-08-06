@@ -27,6 +27,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -41,6 +44,18 @@ import com.example.ui.components.EmptyState
 import com.example.ui.theme.BodyStyle
 import com.example.ui.theme.CaptionStyle
 import com.example.ui.theme.KhataTheme
+import com.example.data.model.Transaction
+import com.example.ui.components.TransactionRow
+import com.example.util.SearchHistoryManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.clickable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,12 +63,17 @@ fun SearchScreen(
     query: String,
     onQueryChange: (String) -> Unit,
     searchResults: List<ContactWithBalance>,
+    transactionSearchResults: List<Transaction>,
     onBackClick: () -> Unit,
     onContactClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = KhataTheme.colors
+    val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
+    
+    // Search history state
+    var searchHistory by remember { mutableStateOf<List<String>>(SearchHistoryManager.getSearchHistory(context)) }
 
     LaunchedEffect(Unit) {
         try {
@@ -127,6 +147,37 @@ fun SearchScreen(
             HorizontalDivider(color = colors.divider, thickness = 1.dp)
 
             if (query.isEmpty()) {
+                if (searchHistory.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "RECENT SEARCHES",
+                            style = CaptionStyle,
+                            color = colors.textSecondary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { 
+                            SearchHistoryManager.clearSearchHistory(context)
+                            searchHistory = emptyList<String>()
+                        }) {
+                            Text("Clear", style = CaptionStyle, color = colors.debit)
+                        }
+                    }
+                    LazyRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        items(searchHistory) { historyItem ->
+                            FilterChip(
+                                selected = false,
+                                onClick = { onQueryChange(historyItem) },
+                                label = { Text(historyItem) },
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = colors.divider, thickness = 1.dp, modifier = Modifier.padding(top = 8.dp))
+                }
+
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -137,31 +188,65 @@ fun SearchScreen(
                         icon = Icons.Default.Search
                     )
                 }
-            } else if (searchResults.isEmpty()) {
+            } else if (searchResults.isEmpty() && transactionSearchResults.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     EmptyState(
-                        message = "No matching contacts found",
+                        message = "No matching results found",
                         subMessage = "Check your spelling or try searching for another term.",
                         icon = Icons.Default.Search
                     )
                 }
             } else {
-                Text(
-                    text = "SEARCH RESULTS (${searchResults.size})",
-                    style = CaptionStyle,
-                    color = colors.textSecondary,
-                    modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = KhataTheme.spacing.sm)
-                )
+                LaunchedEffect(query) {
+                    if (searchResults.isNotEmpty() || transactionSearchResults.isNotEmpty()) {
+                        kotlinx.coroutines.delay(1000)
+                        SearchHistoryManager.addSearchQuery(context, query)
+                    }
+                }
 
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(searchResults, key = { it.contact.id }) { item ->
-                        ContactCard(
-                            contactWithBalance = item,
-                            onClick = { onContactClick(item.contact.id) }
-                        )
+                    if (searchResults.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "CONTACTS (${searchResults.size})",
+                                style = CaptionStyle,
+                                color = colors.textSecondary,
+                                modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = KhataTheme.spacing.sm)
+                            )
+                        }
+                        items(searchResults, key = { "contact_${it.contact.id}" }) { item ->
+                            ContactCard(
+                                contactWithBalance = item,
+                                onClick = { 
+                                    SearchHistoryManager.addSearchQuery(context, query)
+                                    onContactClick(item.contact.id) 
+                                }
+                            )
+                        }
+                    }
+
+                    if (transactionSearchResults.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "ENTRIES (${transactionSearchResults.size})",
+                                style = CaptionStyle,
+                                color = colors.textSecondary,
+                                modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = KhataTheme.spacing.sm)
+                            )
+                        }
+                        items(transactionSearchResults, key = { "tx_${it.id}" }) { item ->
+                            TransactionRow(
+                                transaction = item,
+                                highlightQuery = query,
+                                onClick = { 
+                                    SearchHistoryManager.addSearchQuery(context, query)
+                                    item.contactId?.let { onContactClick(it) }
+                                }
+                            )
+                        }
                     }
                 }
             }

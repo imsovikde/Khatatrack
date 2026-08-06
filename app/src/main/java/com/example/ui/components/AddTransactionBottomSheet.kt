@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -42,6 +43,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Close
+import coil.compose.AsyncImage
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -89,7 +97,9 @@ fun AddTransactionBottomSheet(
         note: String?,
         dueDate: Long?,
         referenceNumber: String?,
-        editingTxId: Long?
+        editingTxId: Long?,
+        attachmentPhotoUri: String?,
+        contactIdOverride: Long?
     ) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -97,6 +107,18 @@ fun AddTransactionBottomSheet(
     val context = LocalContext.current
     val activeSymbol = CurrencyFormatter.getActiveCurrencySymbol()
 
+    var entryMode by remember { mutableStateOf("FOR_CONTACT") }
+    var selectedContactId by remember { mutableStateOf(contactsList.find { it.name == contactName }?.id) }
+
+    var attachmentPhotoUri by remember { mutableStateOf<String?>(editingTransaction?.attachmentPhoto) }
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            attachmentPhotoUri = uri.toString()
+        }
+    }
+    
     var amountText by remember { mutableStateOf(editingTransaction?.amount?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() } ?: "") }
     var currentType by remember { mutableStateOf(editingTransaction?.type ?: initialType) }
     var selectedPaymentMode by remember { mutableStateOf(editingTransaction?.paymentMode ?: "Cash") }
@@ -117,6 +139,8 @@ fun AddTransactionBottomSheet(
     val speechManager = remember { SpeechRecognizerManager(context) }
     var isListeningVoice by remember { mutableStateOf(false) }
     var voiceStatusText by remember { mutableStateOf<String?>(null) }
+    var voiceMode by remember { mutableStateOf("FREEFORM") }
+    var activeGuidedField by remember { mutableStateOf<String?>(null) }
 
     fun processVoiceOrTextInput(text: String) {
         coroutineScope.launch {
@@ -204,6 +228,74 @@ fun AddTransactionBottomSheet(
                 .padding(horizontal = KhataTheme.spacing.md)
                 .navigationBarsPadding()
         ) {
+            // Entry Mode Toggle (only if adding)
+            if (editingTransaction == null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(KhataTheme.shapes.sm)
+                            .background(colors.divider)
+                            .padding(2.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(KhataTheme.shapes.sm)
+                                .background(if (entryMode == "FOR_CONTACT") colors.bgSurface else colors.divider)
+                                .clickable { entryMode = "FOR_CONTACT" }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "For Contact",
+                                style = LabelStyle,
+                                color = if (entryMode == "FOR_CONTACT") colors.textPrimary else colors.textSecondary
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(KhataTheme.shapes.sm)
+                                .background(if (entryMode == "QUICK_ENTRY") colors.bgSurface else colors.divider)
+                                .clickable { entryMode = "QUICK_ENTRY" }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Quick Entry",
+                                style = LabelStyle,
+                                color = if (entryMode == "QUICK_ENTRY") colors.textPrimary else colors.textSecondary
+                            )
+                        }
+                    }
+                }
+                
+                if (entryMode == "FOR_CONTACT") {
+                    var expanded by remember { mutableStateOf(false) }
+                    Box(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                        Text(
+                            text = "Contact: " + (contactsList.find { it.id == selectedContactId }?.name ?: "Select Contact"),
+                            style = TitleStyle,
+                            color = colors.textPrimary,
+                            modifier = Modifier.clickable { expanded = true }.padding(vertical = 8.dp)
+                        )
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            contactsList.forEach { contact ->
+                                DropdownMenuItem(
+                                    text = { Text(contact.name) },
+                                    onClick = {
+                                        selectedContactId = contact.id
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Header Row: Title & Direction Switcher
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -211,7 +303,7 @@ fun AddTransactionBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (editingTransaction != null) "Edit Transaction" else "Entry for $contactName",
+                    text = if (editingTransaction != null) "Edit Transaction" else if (entryMode == "FOR_CONTACT") "Entry for Contact" else "Quick Entry",
                     style = TitleStyle,
                     color = colors.textPrimary
                 )
@@ -293,32 +385,82 @@ fun AddTransactionBottomSheet(
                             .testTag("amount_input")
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(
-                        onClick = {
-                            if (isListeningVoice) {
-                                isListeningVoice = false
-                                speechManager.stopListening()
-                            } else {
-                                isListeningVoice = true
-                                voiceStatusText = "Listening..."
-                                speechManager.startListening(
-                                    onResult = { text ->
-                                        isListeningVoice = false
-                                        processVoiceOrTextInput(text)
-                                    },
-                                    onError = { err ->
-                                        isListeningVoice = false
-                                        voiceStatusText = err
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        IconButton(
+                            onClick = {
+                                if (isListeningVoice) {
+                                    isListeningVoice = false
+                                    activeGuidedField = null
+                                    speechManager.stopListening()
+                                } else {
+                                    isListeningVoice = true
+                                    if (voiceMode == "GUIDED") {
+                                        activeGuidedField = "AMOUNT"
+                                        voiceStatusText = "Listening for amount..."
+                                    } else {
+                                        voiceStatusText = "Listening..."
                                     }
-                                )
-                            }
-                        },
-                        modifier = Modifier.testTag("mic_entry_button")
-                    ) {
-                        Icon(
-                            imageVector = if (isListeningVoice) Icons.Default.MicOff else Icons.Default.Mic,
-                            contentDescription = "Voice Entry",
-                            tint = if (isListeningVoice) colors.textPrimary else colors.textSecondary
+                                    speechManager.startListening(
+                                        onResult = { text ->
+                                            if (voiceMode == "GUIDED") {
+                                                when (activeGuidedField) {
+                                                    "AMOUNT" -> {
+                                                        val amt = text.replace(Regex("[^0-9.]"), "")
+                                                        if (amt.isNotBlank()) amountText = amt
+                                                        activeGuidedField = "MODE"
+                                                        voiceStatusText = "Listening for payment mode..."
+                                                        // Keep listening (simulate chained prompts)
+                                                        speechManager.startListening(
+                                                            onResult = { modeText ->
+                                                                if (modeText.contains("upi", true)) selectedPaymentMode = "UPI"
+                                                                else if (modeText.contains("cash", true)) selectedPaymentMode = "Cash"
+                                                                else if (modeText.contains("card", true)) selectedPaymentMode = "Card"
+                                                                
+                                                                isListeningVoice = false
+                                                                activeGuidedField = null
+                                                                voiceStatusText = null
+                                                            },
+                                                            onError = { err ->
+                                                                isListeningVoice = false
+                                                                activeGuidedField = null
+                                                                voiceStatusText = err
+                                                            }
+                                                        )
+                                                    }
+                                                    else -> {
+                                                        isListeningVoice = false
+                                                        activeGuidedField = null
+                                                        voiceStatusText = null
+                                                    }
+                                                }
+                                            } else {
+                                                isListeningVoice = false
+                                                processVoiceOrTextInput(text)
+                                            }
+                                        },
+                                        onError = { err ->
+                                            isListeningVoice = false
+                                            activeGuidedField = null
+                                            voiceStatusText = err
+                                        }
+                                    )
+                                }
+                            },
+                            modifier = Modifier.testTag("mic_entry_button")
+                        ) {
+                            Icon(
+                                imageVector = if (isListeningVoice) Icons.Default.MicOff else Icons.Default.Mic,
+                                contentDescription = "Voice Entry",
+                                tint = if (isListeningVoice) colors.textPrimary else colors.textSecondary
+                            )
+                        }
+                        Text(
+                            text = if (voiceMode == "FREEFORM") "Freeform" else "Guided",
+                            style = CaptionStyle.copy(fontSize = 10.sp),
+                            color = colors.textSecondary,
+                            modifier = Modifier.clickable { 
+                                voiceMode = if (voiceMode == "FREEFORM") "GUIDED" else "FREEFORM" 
+                            }.padding(horizontal = 4.dp, vertical = 2.dp)
                         )
                     }
                 }
@@ -501,12 +643,30 @@ fun AddTransactionBottomSheet(
                         }
                     }
                 )
-                IconButton(onClick = { /* Photo attachment placeholder */ }) {
-                    Icon(
-                        imageVector = Icons.Default.CameraAlt,
-                        contentDescription = "Attach photo",
-                        tint = colors.textSecondary
-                    )
+                if (attachmentPhotoUri != null) {
+                    Box(modifier = Modifier.size(40.dp)) {
+                        AsyncImage(
+                            model = attachmentPhotoUri,
+                            contentDescription = "Attached photo",
+                            modifier = Modifier.fillMaxSize().clip(KhataTheme.shapes.sm)
+                        )
+                        IconButton(
+                            onClick = { attachmentPhotoUri = null },
+                            modifier = Modifier.align(Alignment.TopEnd).size(16.dp).background(colors.bgSurface, CircleShape)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove photo", tint = colors.textPrimary, modifier = Modifier.size(12.dp))
+                        }
+                    }
+                } else {
+                    IconButton(onClick = { 
+                        photoPickerLauncher.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) 
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Attach photo",
+                            tint = colors.textSecondary
+                        )
+                    }
                 }
             }
 
@@ -580,7 +740,9 @@ fun AddTransactionBottomSheet(
                             noteText.ifBlank { null },
                             calculatedDueDate,
                             referenceNumberText.ifBlank { null },
-                            editingTransaction?.id
+                            editingTransaction?.id,
+                            attachmentPhotoUri,
+                            if (entryMode == "FOR_CONTACT") selectedContactId else null
                         )
                     }
                 },

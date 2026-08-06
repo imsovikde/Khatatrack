@@ -21,7 +21,7 @@ class BootReceiver : BroadcastReceiver() {
                     val pendingReminders = db.reminderDao().getPendingReminders().first()
 
                     for (reminder in pendingReminders) {
-                        val contact = db.contactDao().getContactByIdSync(reminder.contactId)
+                        val contact = if (reminder.contactId != null) db.contactDao().getContactByIdSync(reminder.contactId) else null
                         if (contact != null && reminder.reminderDate > System.currentTimeMillis()) {
                             val netBalance = db.contactDao().getContactNetBalanceSync(contact.id) ?: 0.0
                             ReminderScheduler.scheduleExactReminder(

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Money
 import androidx.compose.material.icons.filled.NorthEast
@@ -39,6 +40,7 @@ import com.example.ui.theme.BodyStyle
 import com.example.ui.theme.CaptionStyle
 import com.example.ui.theme.KhataTheme
 import com.example.ui.theme.TitleStyle
+import androidx.compose.ui.text.withStyle
 import com.example.util.CurrencyFormatter
 
 @Composable
@@ -47,6 +49,7 @@ fun TransactionRow(
     runningBalance: Double? = null,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
+    highlightQuery: String? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = KhataTheme.colors
@@ -67,9 +70,23 @@ fun TransactionRow(
     }
 
     val noteDisplay = if (!transaction.note.isNull_or_blank()) {
-        transaction.note
+        transaction.note ?: ""
     } else {
         "${transaction.paymentMode} Entry"
+    }
+
+    fun highlightText(text: String, query: String?): androidx.compose.ui.text.AnnotatedString {
+        if (query.isNullOrBlank()) return androidx.compose.ui.text.buildAnnotatedString { append(text) }
+        val startIndex = text.lowercase().indexOf(query.lowercase())
+        if (startIndex == -1) return androidx.compose.ui.text.buildAnnotatedString { append(text) }
+        
+        return androidx.compose.ui.text.buildAnnotatedString {
+            append(text.substring(0, startIndex))
+            withStyle(style = androidx.compose.ui.text.SpanStyle(background = colors.credit.copy(alpha = 0.3f), fontWeight = FontWeight.Bold)) {
+                append(text.substring(startIndex, startIndex + query.length))
+            }
+            append(text.substring(startIndex + query.length))
+        }
     }
 
     Column(
@@ -105,7 +122,7 @@ fun TransactionRow(
             // Note + time
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = noteDisplay ?: "",
+                    text = highlightText(noteDisplay, highlightQuery),
                     style = BodyStyle,
                     color = colors.textPrimary,
                     maxLines = 1,
@@ -123,6 +140,15 @@ fun TransactionRow(
                         style = CaptionStyle,
                         color = colors.textSecondary
                     )
+                    if (transaction.attachmentPhoto != null) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.AttachFile,
+                            contentDescription = "Has Attachment",
+                            tint = colors.textSecondary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
                 }
             }
 

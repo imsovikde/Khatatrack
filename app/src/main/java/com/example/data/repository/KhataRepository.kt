@@ -2,6 +2,7 @@ package com.example.data.repository
 
 import com.example.data.dao.CategoryDao
 import com.example.data.dao.ContactDao
+import com.example.data.dao.IncomeExpenseEntryDao
 import com.example.data.dao.PaymentModeDao
 import com.example.data.dao.ReminderDao
 import com.example.data.dao.TraceLogDao
@@ -9,6 +10,7 @@ import com.example.data.dao.TransactionDao
 import com.example.data.model.CategoryItem
 import com.example.data.model.Contact
 import com.example.data.model.ContactWithBalance
+import com.example.data.model.IncomeExpenseEntry
 import com.example.data.model.PaymentModeItem
 import com.example.data.model.Reminder
 import com.example.data.model.TraceLog
@@ -29,13 +31,17 @@ class KhataRepository(
     private val reminderDao: ReminderDao,
     private val traceLogDao: TraceLogDao,
     private val categoryDao: CategoryDao,
-    private val paymentModeDao: PaymentModeDao
+    private val paymentModeDao: PaymentModeDao,
+    private val incomeExpenseEntryDao: IncomeExpenseEntryDao
 ) {
     val allContacts: Flow<List<Contact>> = contactDao.getAllContacts()
     val trashContacts: Flow<List<Contact>> = contactDao.getTrashContacts()
 
     val allTransactions: Flow<List<Transaction>> = transactionDao.getAllTransactions()
     val trashTransactions: Flow<List<Transaction>> = transactionDao.getTrashTransactions()
+
+    val allIncomeExpenseEntries: Flow<List<IncomeExpenseEntry>> = incomeExpenseEntryDao.getAllActive()
+    val trashIncomeExpenseEntries: Flow<List<IncomeExpenseEntry>> = incomeExpenseEntryDao.getAllInTrash()
 
     val pendingReminders: Flow<List<Reminder>> = reminderDao.getPendingReminders()
     val allTraces: Flow<List<TraceLog>> = traceLogDao.getAllTraces()
@@ -391,6 +397,74 @@ class KhataRepository(
         paymentModeDao.setArchived(id, isArchived)
     }
 
+    // --- INCOME & EXPENSE MODULE ---
+
+    suspend fun insertIncomeExpenseEntry(entry: IncomeExpenseEntry): Long {
+        val newId = incomeExpenseEntryDao.insert(entry)
+        traceLogDao.insertTrace(
+            TraceLog(
+                entityType = "INCOME_EXPENSE",
+                entityId = newId,
+                entityName = entry.categoryTag,
+                action = "CREATE",
+                newValue = "${entry.type} of ${entry.amount} via ${entry.paymentMode}"
+            )
+        )
+        return newId
+    }
+
+    suspend fun updateIncomeExpenseEntry(entry: IncomeExpenseEntry) {
+        val old = incomeExpenseEntryDao.getById(entry.id)
+        incomeExpenseEntryDao.update(entry)
+        traceLogDao.insertTrace(
+            TraceLog(
+                entityType = "INCOME_EXPENSE",
+                entityId = entry.id,
+                entityName = entry.categoryTag,
+                action = "UPDATE",
+                oldValue = old?.amount?.toString(),
+                newValue = entry.amount.toString()
+            )
+        )
+    }
+
+    suspend fun softDeleteIncomeExpenseEntry(id: Long) {
+        val old = incomeExpenseEntryDao.getById(id)
+        incomeExpenseEntryDao.softDelete(id)
+        traceLogDao.insertTrace(
+            TraceLog(
+                entityType = "INCOME_EXPENSE",
+                entityId = id,
+                entityName = old?.categoryTag ?: "Entry",
+                action = "SOFT_DELETE"
+            )
+        )
+    }
+
+    suspend fun restoreIncomeExpenseEntry(id: Long) {
+        incomeExpenseEntryDao.restoreFromTrash(id)
+        traceLogDao.insertTrace(
+            TraceLog(
+                entityType = "INCOME_EXPENSE",
+                entityId = id,
+                entityName = "Income/Expense Entry",
+                action = "RESTORE"
+            )
+        )
+    }
+
+    suspend fun hardDeleteIncomeExpenseEntry(id: Long) {
+        incomeExpenseEntryDao.hardDelete(id)
+        traceLogDao.insertTrace(
+            TraceLog(
+                entityType = "INCOME_EXPENSE",
+                entityId = id,
+                entityName = "Entry $id",
+                action = "HARD_DELETE"
+            )
+        )
+    }
+
     // --- BACKUP / RESTORE COMMIT ---
 
     suspend fun restoreBackupData(
@@ -555,6 +629,52 @@ class KhataRepository(
             traceLogDao.insertTrace(TraceLog(entityType = "CONTACT", entityId = c1Id, entityName = "Rahul Sharma", action = "CREATE"))
             traceLogDao.insertTrace(TraceLog(entityType = "CONTACT", entityId = c2Id, entityName = "Priya Patel", action = "CREATE"))
             traceLogDao.insertTrace(TraceLog(entityType = "CONTACT", entityId = c3Id, entityName = "Ramesh Kumar (Kirana)", action = "CREATE"))
+
+            // Income & Expense sample entries
+            incomeExpenseEntryDao.insert(
+                IncomeExpenseEntry(
+                    type = IncomeExpenseEntry.TYPE_INCOME,
+                    amount = 75000.0,
+                    transactionDate = now - (15 * dayMillis),
+                    transactionTime = "09:00 AM",
+                    paymentMode = "Bank Transfer",
+                    categoryTag = "Salary",
+                    note = "Monthly Salary Credit"
+                )
+            )
+            incomeExpenseEntryDao.insert(
+                IncomeExpenseEntry(
+                    type = IncomeExpenseEntry.TYPE_EXPENSE,
+                    amount = 12000.0,
+                    transactionDate = now - (10 * dayMillis),
+                    transactionTime = "02:00 PM",
+                    paymentMode = "UPI",
+                    categoryTag = "Rent",
+                    note = "Apartment Rent"
+                )
+            )
+            incomeExpenseEntryDao.insert(
+                IncomeExpenseEntry(
+                    type = IncomeExpenseEntry.TYPE_EXPENSE,
+                    amount = 3450.0,
+                    transactionDate = now - (4 * dayMillis),
+                    transactionTime = "06:30 PM",
+                    paymentMode = "Card",
+                    categoryTag = "Groceries",
+                    note = "Supermarket restock"
+                )
+            )
+            incomeExpenseEntryDao.insert(
+                IncomeExpenseEntry(
+                    type = IncomeExpenseEntry.TYPE_INCOME,
+                    amount = 18000.0,
+                    transactionDate = now - (1 * dayMillis),
+                    transactionTime = "01:15 PM",
+                    paymentMode = "UPI",
+                    categoryTag = "Freelance",
+                    note = "Logo Design Project"
+                )
+            )
         }
     }
 }

@@ -6,12 +6,14 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.dao.CategoryDao
 import com.example.data.dao.ContactDao
+import com.example.data.dao.IncomeExpenseEntryDao
 import com.example.data.dao.PaymentModeDao
 import com.example.data.dao.ReminderDao
 import com.example.data.dao.TraceLogDao
 import com.example.data.dao.TransactionDao
 import com.example.data.model.CategoryItem
 import com.example.data.model.Contact
+import com.example.data.model.IncomeExpenseEntry
 import com.example.data.model.PaymentModeItem
 import com.example.data.model.Reminder
 import com.example.data.model.TraceLog
@@ -24,9 +26,10 @@ import com.example.data.model.Transaction
         Reminder::class,
         TraceLog::class,
         CategoryItem::class,
-        PaymentModeItem::class
+        PaymentModeItem::class,
+        IncomeExpenseEntry::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class KhataDatabase : RoomDatabase() {
@@ -36,6 +39,7 @@ abstract class KhataDatabase : RoomDatabase() {
     abstract fun traceLogDao(): TraceLogDao
     abstract fun categoryDao(): CategoryDao
     abstract fun paymentModeDao(): PaymentModeDao
+    abstract fun incomeExpenseEntryDao(): IncomeExpenseEntryDao
 
     companion object {
         @Volatile
