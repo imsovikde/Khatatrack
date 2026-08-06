@@ -1,0 +1,6 @@
+{
+  "name": "KhataTrack",
+  "description": "Brand-minimalist personal ledger app for tracking money given and received.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

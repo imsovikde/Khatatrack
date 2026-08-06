@@ -1,0 +1,450 @@
+package com.example.ui.components
+
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.data.model.Transaction
+import com.example.ui.theme.BodyStyle
+import com.example.ui.theme.CaptionStyle
+import com.example.ui.theme.DisplayStyle
+import com.example.ui.theme.KhataTheme
+import com.example.ui.theme.LabelStyle
+import com.example.ui.theme.TitleStyle
+import com.example.util.DateTimeUtils
+import java.util.Calendar
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddTransactionBottomSheet(
+    sheetState: SheetState,
+    initialType: String, // Transaction.TYPE_YOU_GAVE or Transaction.TYPE_YOU_GOT
+    contactName: String,
+    onDismiss: () -> Unit,
+    onSave: (amount: Double, type: String, paymentMode: String, note: String?, dueDate: Long?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = KhataTheme.colors
+    val context = LocalContext.current
+
+    var amountText by remember { mutableStateOf("") }
+    var currentType by remember { mutableStateOf(initialType) }
+    var selectedPaymentMode by remember { mutableStateOf("Cash") }
+    var noteText by remember { mutableStateOf("") }
+
+    val calendar = remember { Calendar.getInstance() }
+    var selectedDateMillis by remember { mutableStateOf(calendar.timeInMillis) }
+    var selectedTimeString by remember { mutableStateOf(DateTimeUtils.getCurrentTimeString()) }
+
+    var isReminderEnabled by remember { mutableStateOf(false) }
+    var reminderOption by remember { mutableStateOf("Tomorrow") } // Tomorrow, Next Week, Next Month
+    var calculatedDueDate by remember { mutableStateOf<Long?>(null) }
+
+    val focusRequester = remember { FocusRequester() }
+
+    val paymentModes = listOf("Cash", "UPI", "Bank Transfer", "Cheque", "Card", "Other")
+
+    val isGot = currentType == Transaction.TYPE_YOU_GOT
+    val semanticColor = if (isGot) colors.credit else colors.debit
+
+    // Auto focus amount input on launch
+    LaunchedEffect(Unit) {
+        try {
+            focusRequester.requestFocus()
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
+
+    // Calculate due date based on option
+    LaunchedEffect(isReminderEnabled, reminderOption) {
+        if (!isReminderEnabled) {
+            calculatedDueDate = null
+        } else {
+            val cal = Calendar.getInstance()
+            when (reminderOption) {
+                "Tomorrow" -> cal.add(Calendar.DAY_OF_YEAR, 1)
+                "Next Week" -> cal.add(Calendar.DAY_OF_YEAR, 7)
+                "Next Month" -> cal.add(Calendar.MONTH, 1)
+            }
+            calculatedDueDate = cal.timeInMillis
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = KhataTheme.shapes.sheetTop,
+        containerColor = colors.bgSurface,
+        scrimColor = colors.overlay,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 10.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(CircleShape)
+                    .background(colors.textDisabled)
+            )
+        }
+    ) {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = KhataTheme.spacing.md)
+                .navigationBarsPadding()
+        ) {
+            // Header Row: Title & Direction Switcher
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Entry for $contactName",
+                    style = TitleStyle,
+                    color = colors.textPrimary
+                )
+                Row(
+                    modifier = Modifier
+                        .clip(KhataTheme.shapes.sm)
+                        .background(colors.divider)
+                        .padding(2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(KhataTheme.shapes.sm)
+                            .background(if (!isGot) colors.debit else colors.divider)
+                            .clickable { currentType = Transaction.TYPE_YOU_GAVE }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "GAVE",
+                            style = LabelStyle.copy(fontSize = 12.sp),
+                            color = if (!isGot) colors.bgSurface else colors.textSecondary
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(KhataTheme.shapes.sm)
+                            .background(if (isGot) colors.credit else colors.divider)
+                            .clickable { currentType = Transaction.TYPE_YOU_GOT }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "GOT",
+                            style = LabelStyle.copy(fontSize = 12.sp),
+                            color = if (isGot) colors.bgSurface else colors.textSecondary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+
+            // DOMINANT AMOUNT INPUT (Dominates 40%+ of visible top area)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "₹ ",
+                        style = DisplayStyle.copy(
+                            fontSize = 44.sp,
+                            color = colors.textSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                    BasicTextField(
+                        value = amountText,
+                        onValueChange = { input ->
+                            if (input.isEmpty() || input.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                                amountText = input
+                            }
+                        },
+                        textStyle = DisplayStyle.copy(
+                            fontSize = 44.sp,
+                            color = semanticColor,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Start
+                        ),
+                        cursorBrush = SolidColor(semanticColor),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier
+                            .width(220.dp)
+                            .focusRequester(focusRequester)
+                            .testTag("amount_input")
+                    )
+                }
+            }
+
+            HorizontalDivider(color = colors.divider, thickness = 1.dp)
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+
+            // Date & Time pickers row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Date picker trigger
+                Row(
+                    modifier = Modifier
+                        .clickable {
+                            val now = Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, dayOfMonth ->
+                                    val sel = Calendar.getInstance().apply {
+                                        set(year, month, dayOfMonth)
+                                    }
+                                    selectedDateMillis = sel.timeInMillis
+                                },
+                                now.get(Calendar.YEAR),
+                                now.get(Calendar.MONTH),
+                                now.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = "Date",
+                        tint = colors.textSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = DateTimeUtils.formatDateHeader(selectedDateMillis),
+                        style = BodyStyle.copy(fontSize = 14.sp),
+                        color = colors.textPrimary
+                    )
+                }
+
+                // Time picker trigger
+                Row(
+                    modifier = Modifier
+                        .clickable {
+                            val now = Calendar.getInstance()
+                            TimePickerDialog(
+                                context,
+                                { _, hourOfDay, minute ->
+                                    val formattedMinute = if (minute < 10) "0$minute" else "$minute"
+                                    val amPm = if (hourOfDay >= 12) "PM" else "AM"
+                                    val hour12 = if (hourOfDay % 12 == 0) 12 else hourOfDay % 12
+                                    selectedTimeString = "$hour12:$formattedMinute $amPm"
+                                },
+                                now.get(Calendar.HOUR_OF_DAY),
+                                now.get(Calendar.MINUTE),
+                                false
+                            ).show()
+                        }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = "Time",
+                        tint = colors.textSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = selectedTimeString,
+                        style = BodyStyle.copy(fontSize = 14.sp),
+                        color = colors.textPrimary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+
+            // Payment Mode Chip Row
+            Text(
+                text = "Payment Mode",
+                style = CaptionStyle,
+                color = colors.textSecondary
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(paymentModes) { mode ->
+                    SemanticChip(
+                        text = mode,
+                        isSelected = selectedPaymentMode == mode,
+                        activeSurfaceColor = semanticColor,
+                        activeTextColor = colors.bgSurface,
+                        onClick = { selectedPaymentMode = mode },
+                        testTag = "payment_mode_$mode"
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+
+            // Note Field + Photo Icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BasicTextField(
+                    value = noteText,
+                    onValueChange = { noteText = it },
+                    textStyle = BodyStyle.copy(color = colors.textPrimary),
+                    cursorBrush = SolidColor(colors.textPrimary),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("note_input"),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (noteText.isEmpty()) {
+                                Text(
+                                    text = "Add note (e.g., Grocery split, Bill payment)",
+                                    style = BodyStyle.copy(color = colors.textDisabled)
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
+                )
+                IconButton(onClick = { /* Photo attachment placeholder */ }) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = "Attach photo",
+                        tint = colors.textSecondary
+                    )
+                }
+            }
+
+            HorizontalDivider(color = colors.divider, thickness = 1.dp)
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
+
+            // Set Reminder Toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Set Collection Due Reminder",
+                    style = BodyStyle.copy(fontSize = 14.sp),
+                    color = colors.textPrimary
+                )
+                Switch(
+                    checked = isReminderEnabled,
+                    onCheckedChange = { isReminderEnabled = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = colors.bgSurface,
+                        checkedTrackColor = semanticColor,
+                        uncheckedThumbColor = colors.textSecondary,
+                        uncheckedTrackColor = colors.divider
+                    ),
+                    modifier = Modifier.testTag("reminder_switch")
+                )
+            }
+
+            AnimatedVisibility(visible = isReminderEnabled) {
+                Column {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(listOf("Tomorrow", "Next Week", "Next Month")) { option ->
+                            SemanticChip(
+                                text = option,
+                                isSelected = reminderOption == option,
+                                activeSurfaceColor = semanticColor,
+                                activeTextColor = colors.bgSurface,
+                                onClick = { reminderOption = option }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
+
+            // Dynamic Action Button
+            val parsedAmount = amountText.toDoubleOrNull() ?: 0.0
+            val isValid = parsedAmount > 0.0
+
+            val buttonLabel = if (isGot) {
+                "SAVE — YOU GOT ${if (parsedAmount > 0) "₹${amountText}" else ""}"
+            } else {
+                "SAVE — YOU GAVE ${if (parsedAmount > 0) "₹${amountText}" else ""}"
+            }
+
+            PrimaryButton(
+                text = buttonLabel,
+                onClick = {
+                    if (isValid) {
+                        onSave(parsedAmount, currentType, selectedPaymentMode, noteText.ifBlank { null }, calculatedDueDate)
+                    }
+                },
+                enabled = isValid,
+                containerColor = semanticColor,
+                contentColor = colors.bgSurface,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "save_transaction_button"
+            )
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+        }
+    }
+}
