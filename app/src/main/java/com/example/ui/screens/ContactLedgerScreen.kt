@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -134,6 +135,16 @@ fun ContactLedgerScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { onOpenAddTransaction(Transaction.TYPE_YOU_GAVE) },
+                        modifier = Modifier.testTag("ledger_voice_top_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Voice Entry",
+                            tint = colors.textPrimary
+                        )
+                    }
                     IconButton(onClick = { showOverflowMenu = true }) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,

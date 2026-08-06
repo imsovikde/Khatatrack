@@ -92,6 +92,10 @@ class KhataRepository(
         return transactionDao.getTransactionsForContact(contactId)
     }
 
+    fun getCategoryAggregates(startDate: Long, endDate: Long): Flow<List<com.example.data.dao.CategoryAggregate>> {
+        return transactionDao.getCategoryAggregates(startDate, endDate)
+    }
+
     fun getContactById(contactId: Long): Flow<Contact?> {
         return contactDao.getContactById(contactId)
     }
@@ -102,6 +106,28 @@ class KhataRepository(
 
     fun getTracesForEntity(entityType: String, entityId: Long): Flow<List<TraceLog>> {
         return traceLogDao.getTracesForEntity(entityType, entityId)
+    }
+
+    // --- FIRESTORE SYNC HELPERS ---
+
+    suspend fun getAllContactsForSync(): List<Contact> {
+        return contactDao.getAllContactsSync()
+    }
+
+    suspend fun getAllTransactionsForSync(): List<Transaction> {
+        return transactionDao.getAllTransactionsSync()
+    }
+
+    suspend fun insertContactsFromSync(contacts: List<Contact>) {
+        if (contacts.isNotEmpty()) {
+            contactDao.insertContacts(contacts)
+        }
+    }
+
+    suspend fun insertTransactionsFromSync(transactions: List<Transaction>) {
+        if (transactions.isNotEmpty()) {
+            transactionDao.insertTransactions(transactions)
+        }
     }
 
     // --- CONTACT OPERATIONS ---
@@ -204,7 +230,13 @@ class KhataRepository(
     // --- TRANSACTION OPERATIONS ---
 
     suspend fun addTransaction(transaction: Transaction, contactName: String = ""): Long {
-        val id = transactionDao.insertTransaction(transaction)
+        val extractedTag = if (transaction.categoryTag.isBlank() || transaction.categoryTag == "General") {
+            com.example.util.CategoryTagExtractor.extractCategoryTag(transaction.note)
+        } else {
+            transaction.categoryTag
+        }
+        val txToInsert = transaction.copy(categoryTag = extractedTag)
+        val id = transactionDao.insertTransaction(txToInsert)
         if (transaction.collectionDueDate != null) {
             reminderDao.insertReminder(
                 Reminder(

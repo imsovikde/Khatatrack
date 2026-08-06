@@ -30,6 +30,7 @@ data class Transaction(
     val attachmentPhoto: String? = null,
     val referenceNumber: String? = null,
     val collectionDueDate: Long? = null,
+    val categoryTag: String = "General",
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val isDeleted: Boolean = false,

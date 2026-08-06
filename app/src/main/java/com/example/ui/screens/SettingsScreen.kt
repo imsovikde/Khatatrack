@@ -374,6 +374,50 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
 
+            // INTELLIGENCE & AI PARSING GROUP
+            var useAiParsing by remember { mutableStateOf(com.example.util.AiConfigManager.getUseAiParsing(context)) }
+
+            Text(
+                text = "INTELLIGENCE & AI PARSING",
+                style = CaptionStyle,
+                color = colors.textSecondary,
+                modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(colors.bgSurface)
+                    .padding(horizontal = KhataTheme.spacing.md, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Use AI-Enhanced Voice/Text Parsing", style = BodyStyle, color = colors.textPrimary)
+                    Text(
+                        text = "Enhance local speech entry with free Gemini BYOK key (off by default)",
+                        style = CaptionStyle,
+                        color = colors.textSecondary
+                    )
+                }
+                Switch(
+                    checked = useAiParsing,
+                    onCheckedChange = { checked ->
+                        useAiParsing = checked
+                        com.example.util.AiConfigManager.setUseAiParsing(context, checked)
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = colors.bgSurface,
+                        checkedTrackColor = colors.textPrimary,
+                        uncheckedThumbColor = colors.textSecondary,
+                        uncheckedTrackColor = colors.divider
+                    ),
+                    modifier = Modifier.testTag("use_ai_parsing_switch")
+                )
+            }
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
+
             // ABOUT GROUP
             Text(
                 text = "ABOUT",

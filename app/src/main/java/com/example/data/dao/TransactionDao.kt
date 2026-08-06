@@ -8,6 +8,12 @@ import androidx.room.Update
 import com.example.data.model.Transaction
 import kotlinx.coroutines.flow.Flow
 
+data class CategoryAggregate(
+    val categoryTag: String,
+    val totalAmount: Double,
+    val count: Int
+)
+
 @Dao
 interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE isDeleted = 0 ORDER BY transactionDate DESC, createdAt DESC")
@@ -21,6 +27,9 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getTransactionById(id: Long): Transaction?
+
+    @Query("SELECT * FROM transactions")
+    suspend fun getAllTransactionsSync(): List<Transaction>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: Transaction): Long
@@ -63,4 +72,7 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE transactionDate >= :startDate AND transactionDate <= :endDate AND isDeleted = 0 ORDER BY transactionDate DESC")
     fun getTransactionsInRange(startDate: Long, endDate: Long): Flow<List<Transaction>>
+
+    @Query("SELECT categoryTag, SUM(amount) AS totalAmount, COUNT(*) AS count FROM transactions WHERE isDeleted = 0 AND transactionDate >= :startDate AND transactionDate <= :endDate GROUP BY categoryTag ORDER BY totalAmount DESC")
+    fun getCategoryAggregates(startDate: Long, endDate: Long): Flow<List<CategoryAggregate>>
 }

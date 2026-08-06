@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,18 +16,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,12 +60,14 @@ import com.example.data.model.ContactWithBalance
 import com.example.data.repository.SummaryTotals
 import com.example.ui.components.ContactCard
 import com.example.ui.components.EmptyState
+import com.example.ui.components.PrimaryButton
 import com.example.ui.components.SemanticChip
 import com.example.ui.theme.BodyStyle
 import com.example.ui.theme.CaptionStyle
 import com.example.ui.theme.DisplayStyle
 import com.example.ui.theme.HeadlineStyle
 import com.example.ui.theme.KhataTheme
+import com.example.ui.theme.LabelStyle
 import com.example.ui.theme.TitleStyle
 import com.example.ui.viewmodel.FilterOption
 import com.example.util.CurrencyFormatter
@@ -73,6 +81,7 @@ fun HomeScreen(
     onFilterSelect: (FilterOption) -> Unit,
     onContactClick: (Long) -> Unit,
     onAddContactClick: () -> Unit,
+    onQuickVoiceClick: () -> Unit = {},
     onSearchClick: () -> Unit,
     onTogglePin: ((Long, Boolean, String) -> Unit)? = null,
     onDeleteContact: ((Long, String) -> Unit)? = null,
@@ -97,6 +106,16 @@ fun HomeScreen(
                 },
                 actions = {
                     IconButton(
+                        onClick = onQuickVoiceClick,
+                        modifier = Modifier.testTag("quick_voice_top_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Quick Voice Entry",
+                            tint = colors.textPrimary
+                        )
+                    }
+                    IconButton(
                         onClick = onSearchClick,
                         modifier = Modifier.testTag("search_icon_button")
                     ) {
@@ -111,20 +130,34 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddContactClick,
-                shape = KhataTheme.shapes.lg,
-                containerColor = colors.textPrimary,
-                contentColor = if (colors.isDark) colors.bgCanvas else colors.bgSurface,
-                modifier = Modifier
-                    .size(56.dp)
-                    .testTag("add_contact_fab")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Contact",
-                    modifier = Modifier.size(28.dp)
+                ExtendedFloatingActionButton(
+                    onClick = onQuickVoiceClick,
+                    shape = KhataTheme.shapes.lg,
+                    containerColor = colors.bgSurfaceElevated,
+                    contentColor = colors.textPrimary,
+                    icon = { Icon(imageVector = Icons.Default.Mic, contentDescription = "Voice Entry") },
+                    text = { Text("Voice Entry", style = LabelStyle.copy(fontWeight = FontWeight.Bold)) },
+                    modifier = Modifier.testTag("voice_entry_fab")
                 )
+                FloatingActionButton(
+                    onClick = onAddContactClick,
+                    shape = KhataTheme.shapes.lg,
+                    containerColor = colors.textPrimary,
+                    contentColor = if (colors.isDark) colors.bgCanvas else colors.bgSurface,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .testTag("add_contact_fab")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Contact",
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         },
         containerColor = colors.bgCanvas,
@@ -142,7 +175,7 @@ fun HomeScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = KhataTheme.elevation.restingCard),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = KhataTheme.spacing.md, vertical = KhataTheme.spacing.sm)
+                    .padding(horizontal = KhataTheme.spacing.md, vertical = KhataTheme.spacing.xs)
                     .testTag("summary_card")
             ) {
                 Column(
@@ -217,6 +250,79 @@ fun HomeScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.xs))
+
+            // FRICTIONLESS VOICE ENTRY BANNER
+            Card(
+                shape = KhataTheme.shapes.md,
+                colors = CardDefaults.cardColors(containerColor = colors.bgSurfaceElevated),
+                elevation = CardDefaults.cardElevation(defaultElevation = KhataTheme.elevation.restingCard),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = KhataTheme.spacing.md, vertical = 2.dp)
+                    .clickable { onQuickVoiceClick() }
+                    .testTag("quick_voice_banner")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(colors.textPrimary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = null,
+                                tint = if (colors.isDark) colors.bgCanvas else colors.bgSurface,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Frictionless Voice Entry",
+                                style = TitleStyle.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+                                color = colors.textPrimary
+                            )
+                            Text(
+                                text = "Speak: 'Gave Rahul 500 via UPI'",
+                                style = CaptionStyle,
+                                color = colors.textSecondary
+                            )
+                        }
+                    }
+                    Button(
+                        onClick = onQuickVoiceClick,
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colors.textPrimary,
+                            contentColor = if (colors.isDark) colors.bgCanvas else colors.bgSurface
+                        ),
+                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp),
+                        modifier = Modifier
+                            .height(36.dp)
+                            .testTag("speak_now_button")
+                    ) {
+                        Text(
+                            text = "Speak",
+                            style = LabelStyle.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1
+                        )
                     }
                 }
             }

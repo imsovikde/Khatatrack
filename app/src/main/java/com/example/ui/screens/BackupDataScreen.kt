@@ -53,6 +53,18 @@ import com.example.ui.viewmodel.KhataViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import com.example.util.FirebaseAuthSyncManager
+import com.example.util.UserSyncState
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.CloudDone
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupDataScreen(
@@ -64,6 +76,8 @@ fun BackupDataScreen(
     val scope = rememberCoroutineScope()
 
     var isEncryptionEnabled by remember { mutableStateOf(CurrencyManager.isEncryptionEnabled(context)) }
+    var syncState by remember { mutableStateOf(FirebaseAuthSyncManager.getSyncState(context)) }
+    var isSyncing by remember { mutableStateOf(false) }
 
     var importSummary by remember { mutableStateOf<BackupSummary?>(null) }
     var importErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -274,6 +288,167 @@ fun BackupDataScreen(
                         )
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Row 4: Firebase Auth & Firestore Sync Card
+            var showAuthDialog by remember { mutableStateOf(false) }
+            var emailInput by remember { mutableStateOf("") }
+            var passwordInput by remember { mutableStateOf("") }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, colors.surfaceBorder)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudSync,
+                            contentDescription = null,
+                            tint = colors.textPrimary
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Firebase Cloud Data Sync",
+                                style = KhataTheme.typography.bodyLarge,
+                                color = colors.textPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Account: ${syncState.email ?: "Local Guest"} (${syncState.syncStatus})",
+                                style = KhataTheme.typography.bodyMedium,
+                                color = colors.textSecondary
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showAuthDialog = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(if (syncState.isSignedIn) "Account Settings" else "Sign In / Auth")
+                        }
+
+                        Button(
+                            onClick = {
+                                isSyncing = true
+                                scope.launch {
+                                    val res = FirebaseAuthSyncManager.fullSyncWithFirestore(context, viewModel.repository)
+                                    isSyncing = false
+                                    syncState = FirebaseAuthSyncManager.getSyncState(context)
+                                    res.fold(
+                                        onSuccess = { msg -> viewModel.showSnackbar(msg) },
+                                        onFailure = { err -> viewModel.showSnackbar("Firebase Sync Error: ${err.localizedMessage}") }
+                                    )
+                                }
+                            },
+                            enabled = !isSyncing,
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.textPrimary),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            if (isSyncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = colors.background,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Syncing...")
+                            } else {
+                                Icon(Icons.Default.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Sync Now")
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (showAuthDialog) {
+                AlertDialog(
+                    onDismissRequest = { showAuthDialog = false },
+                    title = { Text("Firebase Cloud Account") },
+                    text = {
+                        Column {
+                            Text(
+                                text = "Authenticate to sync your Contacts and Transactions across devices automatically.",
+                                style = KhataTheme.typography.bodyMedium,
+                                color = colors.textSecondary
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = emailInput,
+                                onValueChange = { emailInput = it },
+                                label = { Text("Email Address") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = passwordInput,
+                                onValueChange = { passwordInput = it },
+                                label = { Text("Password") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    val authRes = if (emailInput.isNotBlank()) {
+                                        FirebaseAuthSyncManager.signInWithEmail(context, emailInput.trim(), passwordInput.trim())
+                                    } else {
+                                        FirebaseAuthSyncManager.signInAnonymously(context)
+                                    }
+                                    authRes.fold(
+                                        onSuccess = {
+                                            showAuthDialog = false
+                                            syncState = FirebaseAuthSyncManager.getSyncState(context)
+                                            // Automatically trigger full sync after auth
+                                            val syncRes = FirebaseAuthSyncManager.fullSyncWithFirestore(context, viewModel.repository)
+                                            syncRes.fold(
+                                                onSuccess = { msg -> viewModel.showSnackbar("Auth Success! $msg") },
+                                                onFailure = { err -> viewModel.showSnackbar("Auth Success, sync error: ${err.localizedMessage}") }
+                                            )
+                                        },
+                                        onFailure = { err ->
+                                            viewModel.showSnackbar("Auth Error: ${err.localizedMessage}")
+                                        }
+                                    )
+                                }
+                            }
+                        ) {
+                            Text("Sign In & Sync")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showAuthDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
     }

@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Settings
@@ -39,6 +41,7 @@ import com.example.ui.theme.KhataTheme
 
 enum class NavDestination(val route: String, val label: String, val filledIcon: ImageVector, val outlinedIcon: ImageVector) {
     HOME("home", "Home", Icons.Filled.Home, Icons.Outlined.Home),
+    AI_HUB("ai_hub", "AI Hub", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
     REMINDERS("reminders", "Reminders", Icons.Filled.Notifications, Icons.Outlined.Notifications),
     REPORTS("reports", "Reports", Icons.Filled.Analytics, Icons.Outlined.Analytics),
     SETTINGS("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)

@@ -27,7 +27,9 @@ import com.example.data.model.Transaction
 import com.example.ui.components.AddTransactionBottomSheet
 import com.example.ui.components.KhataBottomBar
 import com.example.ui.components.NavDestination
+import com.example.ui.components.QuickVoiceBottomSheet
 import com.example.ui.screens.AddEditContactScreen
+import com.example.ui.screens.AiAssistantScreen
 import com.example.ui.screens.AppLockScreen
 import com.example.ui.screens.BackupDataScreen
 import com.example.ui.screens.CategoryPaymentModeScreen
@@ -62,6 +64,7 @@ class MainActivity : ComponentActivity() {
             val homeContacts by viewModel.homeContacts.collectAsStateWithLifecycle()
             val activeContact by viewModel.activeContact.collectAsStateWithLifecycle()
             val activeContactTransactions by viewModel.activeContactTransactions.collectAsStateWithLifecycle()
+            val allTransactions by viewModel.allTransactions.collectAsStateWithLifecycle()
             val activeContactNetBalance by viewModel.activeContactNetBalance.collectAsStateWithLifecycle()
             val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
             val pendingReminders by viewModel.pendingReminders.collectAsStateWithLifecycle()
@@ -75,6 +78,9 @@ class MainActivity : ComponentActivity() {
 
             // Currency selection bottom sheet state
             var isCurrencySheetOpen by remember { mutableStateOf(false) }
+
+            // Quick Voice Entry bottom sheet state
+            var isQuickVoiceSheetOpen by remember { mutableStateOf(false) }
 
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -117,6 +123,7 @@ class MainActivity : ComponentActivity() {
                             if (showBottomNav) {
                                 val currentRoute = when (currentScreen) {
                                     Screen.HOME -> NavDestination.HOME.route
+                                    Screen.AI_HUB -> NavDestination.AI_HUB.route
                                     Screen.REMINDERS -> NavDestination.REMINDERS.route
                                     Screen.REPORTS -> NavDestination.REPORTS.route
                                     Screen.SETTINGS -> NavDestination.SETTINGS.route
@@ -127,6 +134,7 @@ class MainActivity : ComponentActivity() {
                                     onNavigate = { destination ->
                                         when (destination) {
                                             NavDestination.HOME -> viewModel.navigateTo(Screen.HOME)
+                                            NavDestination.AI_HUB -> viewModel.navigateTo(Screen.AI_HUB)
                                             NavDestination.REMINDERS -> viewModel.navigateTo(Screen.REMINDERS)
                                             NavDestination.REPORTS -> viewModel.navigateTo(Screen.REPORTS)
                                             NavDestination.SETTINGS -> viewModel.navigateTo(Screen.SETTINGS)
@@ -152,9 +160,19 @@ class MainActivity : ComponentActivity() {
                                         onFilterSelect = { viewModel.setFilter(it) },
                                         onContactClick = { contactId -> viewModel.openContactDetail(contactId) },
                                         onAddContactClick = { viewModel.openAddContact() },
+                                        onQuickVoiceClick = { isQuickVoiceSheetOpen = true },
                                         onSearchClick = { viewModel.navigateTo(Screen.SEARCH) },
                                         onTogglePin = { contactId, isPinned, name -> viewModel.togglePinContact(contactId, isPinned, name) },
                                         onDeleteContact = { contactId, name -> viewModel.softDeleteContact(contactId, name) }
+                                    )
+                                }
+
+                                Screen.AI_HUB -> {
+                                    AiAssistantScreen(
+                                        contacts = homeContacts,
+                                        summaryTotals = summaryTotals,
+                                        traceLogs = emptyList(),
+                                        onBackClick = { viewModel.navigateTo(Screen.HOME) }
                                     )
                                 }
 
@@ -213,11 +231,7 @@ class MainActivity : ComponentActivity() {
 
                                 Screen.REPORTS -> {
                                     ReportsScreen(
-                                        transactions = activeContactTransactions.ifEmpty {
-                                            val allList = mutableListOf<Transaction>()
-                                            activeContactTransactions.forEach { allList.add(it) }
-                                            allList
-                                        },
+                                        transactions = allTransactions,
                                         selectedRange = uiState.reportRange,
                                         onRangeSelect = { viewModel.setReportRange(it) }
                                     )
@@ -293,6 +307,7 @@ class MainActivity : ComponentActivity() {
                                 sheetState = sheetState,
                                 initialType = transactionSheetInitialType,
                                 contactName = activeContact!!.name,
+                                contactsList = homeContacts.map { it.contact },
                                 editingTransaction = editingTransactionForSheet,
                                 onDismiss = {
                                     isAddTransactionSheetOpen = false
@@ -323,6 +338,40 @@ class MainActivity : ComponentActivity() {
                                     CurrencyFormatter.updateActiveCurrency(currency.symbol, currency.code)
                                     isCurrencySheetOpen = false
                                     viewModel.showSnackbar("Currency updated to ${currency.symbol} (${currency.code})")
+                                }
+                            )
+                        }
+
+                        // Quick Voice Entry Sheet
+                        if (isQuickVoiceSheetOpen) {
+                            QuickVoiceBottomSheet(
+                                contacts = homeContacts.map { it.contact },
+                                onDismiss = { isQuickVoiceSheetOpen = false },
+                                onSaveTransaction = { contactId, type, amount, paymentMode, note, categoryTag, collectionDueDate, referenceNumber ->
+                                    viewModel.addTransactionForContact(
+                                        contactId = contactId,
+                                        type = type,
+                                        amount = amount,
+                                        paymentMode = paymentMode,
+                                        note = note,
+                                        categoryTag = categoryTag,
+                                        dueDate = collectionDueDate,
+                                        referenceNumber = referenceNumber
+                                    )
+                                    isQuickVoiceSheetOpen = false
+                                },
+                                onAddNewContactAndSave = { contactName, type, amount, paymentMode, note, categoryTag, collectionDueDate, referenceNumber ->
+                                    viewModel.addContactWithInitialTransaction(
+                                        contactName = contactName,
+                                        type = type,
+                                        amount = amount,
+                                        paymentMode = paymentMode,
+                                        note = note,
+                                        categoryTag = categoryTag,
+                                        dueDate = collectionDueDate,
+                                        referenceNumber = referenceNumber
+                                    )
+                                    isQuickVoiceSheetOpen = false
                                 }
                             )
                         }

@@ -8,5 +8,7 @@ class KhataApplication : Application() {
         super.onCreate()
         // Initialize WorkManager daily periodic cleanup worker for expired trash items
         TrashRetentionManager.scheduleDailyCleanupWork(this)
+        // Initialize WorkManager daily overdue digest worker
+        com.example.worker.OverdueDigestWorker.scheduleDailyDigestWork(this)
     }
 }

@@ -44,6 +44,7 @@ import com.example.data.model.Transaction
 import com.example.ui.components.EmptyState
 import com.example.ui.components.SemanticChip
 import com.example.ui.components.TransactionRow
+import com.example.ui.theme.BodyStyle
 import com.example.ui.theme.CaptionStyle
 import com.example.ui.theme.DisplayStyle
 import com.example.ui.theme.HeadlineStyle
@@ -284,6 +285,79 @@ fun ReportsScreen(
                     ) {
                         Text(text = "You Gave (Debit)", style = CaptionStyle, color = colors.debit)
                         Text(text = "You Got (Credit)", style = CaptionStyle, color = colors.credit)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+
+            // CATEGORY DISTRIBUTION CANVAS HORIZONTAL BAR CHART (Part S.4)
+            val categoryAggregates = remember(transactions) {
+                transactions.groupBy { if (it.categoryTag.isBlank()) "General" else it.categoryTag }
+                    .map { (tag, list) -> tag to list.sumOf { tx -> tx.amount } }
+                    .sortedByDescending { it.second }
+            }
+
+            if (categoryAggregates.isNotEmpty()) {
+                Card(
+                    shape = KhataTheme.shapes.md,
+                    colors = CardDefaults.cardColors(containerColor = colors.bgSurface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = KhataTheme.elevation.restingCard),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = KhataTheme.spacing.md)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(KhataTheme.spacing.md)
+                    ) {
+                        Text(
+                            text = "SMART CATEGORY BREAKDOWN",
+                            style = CaptionStyle,
+                            color = colors.textSecondary,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
+
+                        val maxCatAmount = categoryAggregates.maxOfOrNull { it.second }?.coerceAtLeast(1.0) ?: 1.0
+                        val barColor = colors.textPrimary
+                        val trackColor = colors.divider
+
+                        categoryAggregates.take(5).forEach { (tag, amount) ->
+                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(text = "#$tag", style = BodyStyle.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold), color = colors.textPrimary)
+                                    Text(text = CurrencyFormatter.formatRupee(amount), style = CaptionStyle, color = colors.textSecondary)
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Canvas(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(10.dp)
+                                ) {
+                                    val canvasW = size.width
+                                    val canvasH = size.height
+                                    val barW = ((amount / maxCatAmount) * canvasW).toFloat()
+
+                                    // Background Track
+                                    drawRoundRect(
+                                        color = trackColor,
+                                        size = Size(canvasW, canvasH),
+                                        cornerRadius = CornerRadius(4f, 4f)
+                                    )
+                                    // Filled Bar
+                                    drawRoundRect(
+                                        color = barColor,
+                                        size = Size(barW, canvasH),
+                                        cornerRadius = CornerRadius(4f, 4f)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

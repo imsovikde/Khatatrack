@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 
 enum class Screen {
     HOME,
+    AI_HUB,
     REMINDERS,
     REPORTS,
     SETTINGS,
@@ -139,6 +140,14 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = null
     )
+
+    // All transactions flow for reports
+    val allTransactions: StateFlow<List<Transaction>> = repository.allTransactions
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     // Active contact transactions
     val activeContactTransactions: StateFlow<List<Transaction>> = _uiState.flatMapLatest { state ->
@@ -382,6 +391,65 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
                 repository.addTransaction(tx, cName)
                 showSnackbar("Transaction added successfully")
             }
+        }
+    }
+
+    fun addTransactionForContact(
+        contactId: Long,
+        type: String,
+        amount: Double,
+        paymentMode: String,
+        note: String,
+        categoryTag: String,
+        dueDate: Long?,
+        referenceNumber: String?
+    ) {
+        viewModelScope.launch {
+            val contact = repository.getContactByIdSync(contactId)
+            val cName = contact?.name ?: ""
+            val tx = Transaction(
+                contactId = contactId,
+                type = type,
+                amount = amount,
+                paymentMode = paymentMode,
+                note = note,
+                categoryTag = categoryTag,
+                referenceNumber = referenceNumber,
+                collectionDueDate = dueDate
+            )
+            repository.addTransaction(tx, cName)
+            showSnackbar("Voice transaction saved for $cName")
+        }
+    }
+
+    fun addContactWithInitialTransaction(
+        contactName: String,
+        type: String,
+        amount: Double,
+        paymentMode: String,
+        note: String,
+        categoryTag: String,
+        dueDate: Long?,
+        referenceNumber: String?
+    ) {
+        viewModelScope.launch {
+            val newContact = Contact(
+                name = contactName,
+                categoryTag = "General"
+            )
+            val newId = repository.addContact(newContact)
+            val tx = Transaction(
+                contactId = newId,
+                type = type,
+                amount = amount,
+                paymentMode = paymentMode,
+                note = note,
+                categoryTag = categoryTag,
+                referenceNumber = referenceNumber,
+                collectionDueDate = dueDate
+            )
+            repository.addTransaction(tx, contactName)
+            showSnackbar("Created '$contactName' & saved voice transaction")
         }
     }
 

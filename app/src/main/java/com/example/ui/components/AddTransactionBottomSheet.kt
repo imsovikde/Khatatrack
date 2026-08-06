@@ -65,12 +65,21 @@ import com.example.util.CurrencyFormatter
 import com.example.util.DateTimeUtils
 import java.util.Calendar
 
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.data.model.Contact
+import com.example.util.IntelligentParser
+import com.example.util.SpeechRecognizerManager
+import kotlinx.coroutines.launch
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionBottomSheet(
     sheetState: SheetState,
     initialType: String, // Transaction.TYPE_YOU_GAVE or Transaction.TYPE_YOU_GOT
     contactName: String,
+    contactsList: List<Contact> = emptyList(),
     editingTransaction: Transaction? = null,
     onDismiss: () -> Unit,
     onSave: (
@@ -103,6 +112,37 @@ fun AddTransactionBottomSheet(
     var calculatedDueDate by remember { mutableStateOf<Long?>(editingTransaction?.collectionDueDate) }
 
     val focusRequester = remember { FocusRequester() }
+    val coroutineScope = rememberCoroutineScope()
+
+    val speechManager = remember { SpeechRecognizerManager(context) }
+    var isListeningVoice by remember { mutableStateOf(false) }
+    var voiceStatusText by remember { mutableStateOf<String?>(null) }
+
+    fun processVoiceOrTextInput(text: String) {
+        coroutineScope.launch {
+            val result = IntelligentParser.parseInputText(context, text, contactsList)
+            if (result.amount != null) {
+                amountText = if (result.amount % 1.0 == 0.0) result.amount.toLong().toString() else result.amount.toString()
+            }
+            if (result.intent.isNotBlank()) {
+                currentType = result.intent
+            }
+            if (result.paymentMode.isNotBlank()) {
+                selectedPaymentMode = result.paymentMode
+            }
+            if (!result.note.isNullOrBlank()) {
+                noteText = result.note
+            }
+            if (!result.referenceNumber.isNullOrBlank()) {
+                referenceNumberText = result.referenceNumber
+            }
+            if (result.collectionDueDate != null) {
+                isReminderEnabled = true
+                calculatedDueDate = result.collectionDueDate
+            }
+            voiceStatusText = "Parsed via ${result.parsedSource}"
+        }
+    }
 
     val paymentModes = listOf("Cash", "UPI", "Bank Transfer", "Cheque", "Card", "Other")
 
@@ -212,7 +252,7 @@ fun AddTransactionBottomSheet(
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
-            // DOMINANT AMOUNT INPUT
+            // DOMINANT AMOUNT INPUT WITH INTELLIGENT MIC ENTRY
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -248,11 +288,51 @@ fun AddTransactionBottomSheet(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier
-                            .width(220.dp)
+                            .width(180.dp)
                             .focusRequester(focusRequester)
                             .testTag("amount_input")
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            if (isListeningVoice) {
+                                isListeningVoice = false
+                                speechManager.stopListening()
+                            } else {
+                                isListeningVoice = true
+                                voiceStatusText = "Listening..."
+                                speechManager.startListening(
+                                    onResult = { text ->
+                                        isListeningVoice = false
+                                        processVoiceOrTextInput(text)
+                                    },
+                                    onError = { err ->
+                                        isListeningVoice = false
+                                        voiceStatusText = err
+                                    }
+                                )
+                            }
+                        },
+                        modifier = Modifier.testTag("mic_entry_button")
+                    ) {
+                        Icon(
+                            imageVector = if (isListeningVoice) Icons.Default.MicOff else Icons.Default.Mic,
+                            contentDescription = "Voice Entry",
+                            tint = if (isListeningVoice) colors.textPrimary else colors.textSecondary
+                        )
+                    }
                 }
+            }
+
+            // Minimal Listening Waveform / Voice Status Indicator in text-secondary gray only
+            if (isListeningVoice || voiceStatusText != null) {
+                Text(
+                    text = if (isListeningVoice) "••• Listening for speech (e.g., 'Gave Rahul 500 UPI')..." else voiceStatusText.orEmpty(),
+                    style = CaptionStyle,
+                    color = colors.textSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                )
             }
 
             HorizontalDivider(color = colors.divider, thickness = 1.dp)

@@ -22,6 +22,12 @@ interface ContactDao {
     @Query("SELECT * FROM contacts WHERE id = :id")
     suspend fun getContactByIdSync(id: Long): Contact?
 
+    @Query("SELECT SUM(CASE WHEN type = 'YOU_GOT' THEN amount ELSE -amount END) FROM transactions WHERE contactId = :contactId AND isDeleted = 0")
+    suspend fun getContactNetBalanceSync(contactId: Long): Double?
+
+    @Query("SELECT * FROM contacts")
+    suspend fun getAllContactsSync(): List<Contact>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertContact(contact: Contact): Long
 
