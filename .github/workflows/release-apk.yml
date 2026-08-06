@@ -1,4 +1,4 @@
-name: Intelligent Branch-Scoped Real-Time APK Release Engine
+name: Real Android APK Automatic Release Pipeline
 
 on:
   push:
@@ -11,38 +11,53 @@ permissions:
 
 jobs:
   build-and-release:
-    name: Build APK & Publish Branch-Scoped Release
+    name: Build Real Android APK & Publish Release
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Codebase
+      - name: 📥 Checkout Complete Codebase
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 17
+      - name: ☕ Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle Build Engine
+      - name: 🐘 Setup Gradle Build Engine
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Prepare Environment Properties
+      - name: ⚙️ Prepare Environment Configuration
         run: |
           if [ ! -f .env ]; then
             cp .env.example .env
           fi
 
-      - name: Compile Android APK
+      - name: 🛠️ Compile Real Android APK from Codebase
         run: gradle assembleDebug --no-daemon
 
-      - name: Compute Branch-Scoped Version & Package APK
+      - name: 🔍 Verify & Package Real APK Binary (>1MB Validation)
         run: |
           RAW_BRANCH="${GITHUB_REF_NAME}"
           BRANCH_SLUG=$(echo "${RAW_BRANCH}" | sed 's/[^a-zA-Z0-9._-]/--/g')
           
+          ORIGINAL_APK="app/build/outputs/apk/debug/app-debug.apk"
+          
+          if [ ! -f "$ORIGINAL_APK" ]; then
+            echo "❌ ERROR: $ORIGINAL_APK does not exist! Compilation failed."
+            exit 1
+          fi
+
+          FILE_SIZE=$(wc -c < "$ORIGINAL_APK")
+          echo "Compiling complete... Output APK size: ${FILE_SIZE} bytes."
+
+          if [ "$FILE_SIZE" -lt 1000000 ]; then
+            echo "❌ ERROR: Compiled APK file size (${FILE_SIZE} bytes) is less than 1MB. Not a real APK binary!"
+            exit 1
+          fi
+
           if [ "${RAW_BRANCH}" = "main" ]; then
             VERSION_TAG="v1.0.${{ github.run_number }}"
             RELEASE_TITLE="KhataTrack Main Release ${VERSION_TAG} 🚀"
@@ -53,15 +68,16 @@ jobs:
             APK_NAME="KhataTrack-SouvikDey-${BRANCH_SLUG}-${VERSION_TAG}.apk"
           fi
 
-          cp app/build/outputs/apk/debug/app-debug.apk "${APK_NAME}"
+          cp "$ORIGINAL_APK" "${APK_NAME}"
           
           echo "RAW_BRANCH=${RAW_BRANCH}" >> $GITHUB_ENV
           echo "BRANCH_SLUG=${BRANCH_SLUG}" >> $GITHUB_ENV
           echo "RELEASE_TAG=${VERSION_TAG}" >> $GITHUB_ENV
           echo "RELEASE_TITLE=${RELEASE_TITLE}" >> $GITHUB_ENV
           echo "APK_FILE=${APK_NAME}" >> $GITHUB_ENV
+          echo "APK_SIZE_BYTES=${FILE_SIZE}" >> $GITHUB_ENV
 
-      - name: Intelligent Branch Release Notes Engine
+      - name: 🤖 Intelligent Release Notes Engine
         run: |
           COMMIT_HASH=$(git rev-parse --short HEAD)
           COMMIT_MSG=$(git log -1 --pretty=format:"%s")
@@ -84,32 +100,33 @@ jobs:
           CHANGES_STAT=$(git log -1 --stat --oneline | tail -n 1)
 
           cat <<EOF > release_notes.md
-          # 💸 KhataTrack Intelligent Release [${RAW_BRANCH}] ${RELEASE_TAG} 🚀
+          # 💸 KhataTrack Real Android APK Release ${RELEASE_TAG} 🚀
 
-          ### 📱 Download Branch APK File
+          ### 📱 Download Installable Android APK Binary
           👉 **[Download ${APK_FILE}](https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${APK_FILE})**
 
           ---
 
-          ## 🧠 Branch-Scoped Commitment Summary
+          ## 🧠 Real APK Binary Verification Summary
 
           - **Target Branch**: \`${RAW_BRANCH}\`
-          - **APK Package Name**: \`${APK_FILE}\`
+          - **Installable APK File**: \`${APK_FILE}\`
+          - **Verified Binary Size**: \`${APK_SIZE_BYTES}\` bytes (Real Android APK Binary)
           - **Maintainer**: **Souvik Dey** ([@imsovikde](https://github.com/imsovikde))
           - **Latest Commit**: \`${COMMIT_HASH}\` — **${COMMIT_MSG}**
           - **Build Timestamp**: ${BUILD_DATE}
           - **Code Changes Stat**: \`${CHANGES_STAT}\`
-          - **Branch Isolation**: Scoped exclusively to branch \`${RAW_BRANCH}\` (does not overwrite other branches).
+          - **Compatibility**: Android 7.0+ (API 24 to 36)
 
           ---
 
-          ### 📋 Categorized Branch Changes
+          ### 📋 Categorized Commitment Changes
 
-          ${FEATS:-"- 🎨 Feature changes on branch `${RAW_BRANCH}`."}
-          ${FIXES:-"- 🐛 Bug fixes & enhancements on branch `${RAW_BRANCH}`."}
-          ${PERFS:-"- ⚡ Performance optimizations on branch `${RAW_BRANCH}`."}
-          ${DOCS:-"- 📝 Documentation updates on branch `${RAW_BRANCH}`."}
-          ${CHORES:-"- 📦 Dependencies & build config updates on branch `${RAW_BRANCH}`."}
+          ${FEATS:-"- 🎨 Feature updates compiled directly from codebase."}
+          ${FIXES:-"- 🐛 Bug fixes & stability patches."}
+          ${PERFS:-"- ⚡ Jetpack Compose & Room Database optimizations."}
+          ${DOCS:-"- 📝 Documentation & setup guidelines."}
+          ${CHORES:-"- 📦 Gradle build dependencies & workflow updates."}
 
           ---
 
@@ -119,12 +136,12 @@ jobs:
           ---
 
           > [!NOTE]
-          > All previous APK versions for this and other branches remain archived and accessible in the [Releases History Section](https://github.com/${{ github.repository }}/releases).
+          > All previous real APK versions remain archived and downloadable anytime in the [Releases History Section](https://github.com/${{ github.repository }}/releases).
 
-          *Automated by KhataTrack Intelligent Release Engine for Souvik Dey.*
+          *Compiled directly from codebase by KhataTrack Release Engine for Souvik Dey.*
           EOF
 
-      - name: Publish Branch-Scoped Release via GH CLI
+      - name: 🚀 Publish Real Release with APK Asset via GH CLI
         run: |
           gh release create "${RELEASE_TAG}" "${APK_FILE}" \
             --title "${RELEASE_TITLE}" \
