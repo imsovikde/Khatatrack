@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -49,6 +48,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -61,6 +61,7 @@ import com.example.ui.theme.DisplayStyle
 import com.example.ui.theme.KhataTheme
 import com.example.ui.theme.LabelStyle
 import com.example.ui.theme.TitleStyle
+import com.example.util.CurrencyFormatter
 import com.example.util.DateTimeUtils
 import java.util.Calendar
 
@@ -70,25 +71,36 @@ fun AddTransactionBottomSheet(
     sheetState: SheetState,
     initialType: String, // Transaction.TYPE_YOU_GAVE or Transaction.TYPE_YOU_GOT
     contactName: String,
+    editingTransaction: Transaction? = null,
     onDismiss: () -> Unit,
-    onSave: (amount: Double, type: String, paymentMode: String, note: String?, dueDate: Long?) -> Unit,
+    onSave: (
+        amount: Double,
+        type: String,
+        paymentMode: String,
+        note: String?,
+        dueDate: Long?,
+        referenceNumber: String?,
+        editingTxId: Long?
+    ) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = KhataTheme.colors
     val context = LocalContext.current
+    val activeSymbol = CurrencyFormatter.getActiveCurrencySymbol()
 
-    var amountText by remember { mutableStateOf("") }
-    var currentType by remember { mutableStateOf(initialType) }
-    var selectedPaymentMode by remember { mutableStateOf("Cash") }
-    var noteText by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf(editingTransaction?.amount?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() } ?: "") }
+    var currentType by remember { mutableStateOf(editingTransaction?.type ?: initialType) }
+    var selectedPaymentMode by remember { mutableStateOf(editingTransaction?.paymentMode ?: "Cash") }
+    var noteText by remember { mutableStateOf(editingTransaction?.note ?: "") }
+    var referenceNumberText by remember { mutableStateOf(editingTransaction?.referenceNumber ?: "") }
 
     val calendar = remember { Calendar.getInstance() }
-    var selectedDateMillis by remember { mutableStateOf(calendar.timeInMillis) }
-    var selectedTimeString by remember { mutableStateOf(DateTimeUtils.getCurrentTimeString()) }
+    var selectedDateMillis by remember { mutableStateOf(editingTransaction?.transactionDate ?: calendar.timeInMillis) }
+    var selectedTimeString by remember { mutableStateOf(editingTransaction?.transactionTime ?: DateTimeUtils.getCurrentTimeString()) }
 
-    var isReminderEnabled by remember { mutableStateOf(false) }
-    var reminderOption by remember { mutableStateOf("Tomorrow") } // Tomorrow, Next Week, Next Month
-    var calculatedDueDate by remember { mutableStateOf<Long?>(null) }
+    var isReminderEnabled by remember { mutableStateOf(editingTransaction?.collectionDueDate != null) }
+    var reminderOption by remember { mutableStateOf("Tomorrow") }
+    var calculatedDueDate by remember { mutableStateOf<Long?>(editingTransaction?.collectionDueDate) }
 
     val focusRequester = remember { FocusRequester() }
 
@@ -97,12 +109,21 @@ fun AddTransactionBottomSheet(
     val isGot = currentType == Transaction.TYPE_YOU_GOT
     val semanticColor = if (isGot) colors.credit else colors.debit
 
-    // Auto focus amount input on launch
+    val isRefFieldVisible = selectedPaymentMode == "UPI" || selectedPaymentMode == "Bank Transfer" || selectedPaymentMode == "Cheque"
+    val refFieldLabel = when (selectedPaymentMode) {
+        "UPI", "Bank Transfer" -> "Transaction Reference / UTR Number"
+        "Cheque" -> "Cheque Number"
+        else -> "Reference Number"
+    }
+
+    // Auto focus amount input on launch if new
     LaunchedEffect(Unit) {
-        try {
-            focusRequester.requestFocus()
-        } catch (e: Exception) {
-            // ignore
+        if (editingTransaction == null) {
+            try {
+                focusRequester.requestFocus()
+            } catch (e: Exception) {
+                // ignore
+            }
         }
     }
 
@@ -110,7 +131,7 @@ fun AddTransactionBottomSheet(
     LaunchedEffect(isReminderEnabled, reminderOption) {
         if (!isReminderEnabled) {
             calculatedDueDate = null
-        } else {
+        } else if (editingTransaction?.collectionDueDate == null) {
             val cal = Calendar.getInstance()
             when (reminderOption) {
                 "Tomorrow" -> cal.add(Calendar.DAY_OF_YEAR, 1)
@@ -150,7 +171,7 @@ fun AddTransactionBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Entry for $contactName",
+                    text = if (editingTransaction != null) "Edit Transaction" else "Entry for $contactName",
                     style = TitleStyle,
                     color = colors.textPrimary
                 )
@@ -191,7 +212,7 @@ fun AddTransactionBottomSheet(
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
-            // DOMINANT AMOUNT INPUT (Dominates 40%+ of visible top area)
+            // DOMINANT AMOUNT INPUT
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -203,7 +224,7 @@ fun AddTransactionBottomSheet(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "₹ ",
+                        text = "$activeSymbol ",
                         style = DisplayStyle.copy(
                             fontSize = 44.sp,
                             color = colors.textSecondary,
@@ -337,6 +358,42 @@ fun AddTransactionBottomSheet(
                 }
             }
 
+            // Conditional Payment Reference / UTR / Cheque field
+            AnimatedVisibility(visible = isRefFieldVisible) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                    Text(
+                        text = refFieldLabel,
+                        style = CaptionStyle,
+                        color = colors.textSecondary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    BasicTextField(
+                        value = referenceNumberText,
+                        onValueChange = { referenceNumberText = it },
+                        textStyle = BodyStyle.copy(
+                            color = colors.textPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        cursorBrush = SolidColor(colors.textPrimary),
+                        modifier = Modifier.fillMaxWidth(),
+                        decorationBox = { inner ->
+                            Box {
+                                if (referenceNumberText.isEmpty()) {
+                                    Text(
+                                        text = "e.g., UTR129048123",
+                                        style = BodyStyle.copy(color = colors.textDisabled, fontFamily = FontFamily.Monospace)
+                                    )
+                                }
+                                inner()
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(color = colors.divider, thickness = 1.dp)
+                }
+            }
+
             Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
             // Note Field + Photo Icon
@@ -424,17 +481,27 @@ fun AddTransactionBottomSheet(
             val parsedAmount = amountText.toDoubleOrNull() ?: 0.0
             val isValid = parsedAmount > 0.0
 
-            val buttonLabel = if (isGot) {
-                "SAVE — YOU GOT ${if (parsedAmount > 0) "₹${amountText}" else ""}"
+            val buttonLabel = if (editingTransaction != null) {
+                "SAVE CHANGES — $activeSymbol${amountText}"
+            } else if (isGot) {
+                "SAVE — YOU GOT ${if (parsedAmount > 0) "$activeSymbol${amountText}" else ""}"
             } else {
-                "SAVE — YOU GAVE ${if (parsedAmount > 0) "₹${amountText}" else ""}"
+                "SAVE — YOU GAVE ${if (parsedAmount > 0) "$activeSymbol${amountText}" else ""}"
             }
 
             PrimaryButton(
                 text = buttonLabel,
                 onClick = {
                     if (isValid) {
-                        onSave(parsedAmount, currentType, selectedPaymentMode, noteText.ifBlank { null }, calculatedDueDate)
+                        onSave(
+                            parsedAmount,
+                            currentType,
+                            selectedPaymentMode,
+                            noteText.ifBlank { null },
+                            calculatedDueDate,
+                            referenceNumberText.ifBlank { null },
+                            editingTransaction?.id
+                        )
                     }
                 },
                 enabled = isValid,

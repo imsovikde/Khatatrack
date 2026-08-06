@@ -28,7 +28,11 @@ enum class Screen {
     SETTINGS,
     CONTACT_DETAIL,
     ADD_EDIT_CONTACT,
-    SEARCH
+    SEARCH,
+    TRASH,
+    TRACE_LOG,
+    CATEGORY_PAYMENT_MODE,
+    BACKUP_DATA
 }
 
 enum class FilterOption {
@@ -56,13 +60,23 @@ data class UiState(
     val securityPin: String = "1234",
     val isDarkMode: Boolean = false,
     val snackbarMessage: String? = null,
-    val lastDeletedTransaction: Transaction? = null
+    val lastDeletedTransaction: Transaction? = null,
+    val lastDeletedContact: Contact? = null,
+    val traceTargetEntityType: String? = null,
+    val traceTargetEntityId: Long? = null
 )
 
 class KhataViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = KhataDatabase.getDatabase(application)
-    val repository = KhataRepository(db.contactDao(), db.transactionDao(), db.reminderDao())
+    val repository = KhataRepository(
+        contactDao = db.contactDao(),
+        transactionDao = db.transactionDao(),
+        reminderDao = db.reminderDao(),
+        traceLogDao = db.traceLogDao(),
+        categoryDao = db.categoryDao(),
+        paymentModeDao = db.paymentModeDao()
+    )
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -70,7 +84,22 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             repository.seedSampleDataIfEmpty()
+            val retentionDays = com.example.util.TrashRetentionManager.getRetentionDays(application)
+            repository.purgeOldTrash(retentionDays)
+            com.example.util.TrashRetentionManager.scheduleDailyCleanupWork(application)
         }
+    }
+
+    fun getTrashRetentionDays(): Int {
+        return com.example.util.TrashRetentionManager.getRetentionDays(getApplication())
+    }
+
+    fun setTrashRetentionDays(days: Int) {
+        com.example.util.TrashRetentionManager.setRetentionDays(getApplication(), days)
+        viewModelScope.launch {
+            repository.purgeOldTrash(days)
+        }
+        showSnackbar("Trash retention window updated to $days days")
     }
 
     // Summary totals flow
@@ -196,6 +225,22 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    fun openSingleTraceLog(entityType: String, entityId: Long) {
+        _uiState.value = _uiState.value.copy(
+            traceTargetEntityType = entityType,
+            traceTargetEntityId = entityId,
+            currentScreen = Screen.TRACE_LOG
+        )
+    }
+
+    fun openFullTraceLog() {
+        _uiState.value = _uiState.value.copy(
+            traceTargetEntityType = null,
+            traceTargetEntityId = null,
+            currentScreen = Screen.TRACE_LOG
+        )
+    }
+
     fun setFilter(filter: FilterOption) {
         _uiState.value = _uiState.value.copy(homeFilter = filter)
     }
@@ -238,7 +283,7 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
                     addressNotes = notes,
                     updatedAt = System.currentTimeMillis()
                 )
-                repository.updateContact(updated)
+                repository.updateContact(updated, editContact)
                 _uiState.value = _uiState.value.copy(
                     activeContactId = updated.id,
                     currentScreen = Screen.CONTACT_DETAIL
@@ -266,56 +311,119 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun deleteContact(contactId: Long) {
+    fun softDeleteContact(contactId: Long, name: String = "Contact") {
         viewModelScope.launch {
-            repository.deleteContactPermanently(contactId)
+            val contact = repository.getContactByIdSync(contactId)
+            repository.softDeleteContact(contactId, name)
             _uiState.value = _uiState.value.copy(
+                lastDeletedContact = contact,
                 activeContactId = null,
                 currentScreen = Screen.HOME,
-                snackbarMessage = "Contact deleted"
+                snackbarMessage = "'$name' moved to Trash"
             )
         }
     }
 
-    fun addTransaction(
+    fun restoreContact(contactId: Long, name: String = "Contact") {
+        viewModelScope.launch {
+            repository.restoreContact(contactId, name)
+            showSnackbar("Restored '$name' from Trash")
+        }
+    }
+
+    fun deleteContactPermanently(contactId: Long, name: String = "Contact") {
+        viewModelScope.launch {
+            repository.deleteContactPermanently(contactId, name)
+            showSnackbar("Permanently deleted '$name'")
+        }
+    }
+
+    fun saveOrUpdateTransaction(
         amount: Double,
         type: String,
         paymentMode: String,
         note: String?,
-        dueDate: Long?
+        dueDate: Long?,
+        referenceNumber: String?,
+        editingTxId: Long?
     ) {
         val contactId = _uiState.value.activeContactId ?: return
         viewModelScope.launch {
-            val tx = Transaction(
-                contactId = contactId,
-                type = type,
-                amount = amount,
-                paymentMode = paymentMode,
-                note = note,
-                collectionDueDate = dueDate
-            )
-            repository.addTransaction(tx)
-            showSnackbar("Transaction added successfully")
+            val contact = repository.getContactByIdSync(contactId)
+            val cName = contact?.name ?: ""
+
+            if (editingTxId != null) {
+                val oldTx = repository.getTransactionById(editingTxId)
+                if (oldTx != null) {
+                    val updated = oldTx.copy(
+                        amount = amount,
+                        type = type,
+                        paymentMode = paymentMode,
+                        note = note,
+                        referenceNumber = referenceNumber,
+                        collectionDueDate = dueDate
+                    )
+                    repository.updateTransaction(updated, oldTx, cName)
+                    showSnackbar("Transaction updated")
+                }
+            } else {
+                val tx = Transaction(
+                    contactId = contactId,
+                    type = type,
+                    amount = amount,
+                    paymentMode = paymentMode,
+                    note = note,
+                    referenceNumber = referenceNumber,
+                    collectionDueDate = dueDate
+                )
+                repository.addTransaction(tx, cName)
+                showSnackbar("Transaction added successfully")
+            }
         }
     }
 
-    fun deleteTransaction(transaction: Transaction) {
+    fun softDeleteTransaction(transaction: Transaction) {
         viewModelScope.launch {
-            repository.deleteTransaction(transaction.id)
+            repository.softDeleteTransaction(transaction.id, "Tx #${transaction.id}")
             _uiState.value = _uiState.value.copy(
                 lastDeletedTransaction = transaction,
-                snackbarMessage = "Transaction deleted"
+                snackbarMessage = "Transaction moved to Trash"
             )
+        }
+    }
+
+    fun restoreTransaction(id: Long, desc: String = "") {
+        viewModelScope.launch {
+            repository.restoreTransaction(id, desc)
+            showSnackbar("Transaction restored from Trash")
+        }
+    }
+
+    fun deleteTransactionPermanently(id: Long, desc: String = "") {
+        viewModelScope.launch {
+            repository.deleteTransactionPermanently(id, desc)
+            showSnackbar("Transaction deleted permanently")
         }
     }
 
     fun undoDeleteTransaction() {
         val lastTx = _uiState.value.lastDeletedTransaction ?: return
         viewModelScope.launch {
-            repository.addTransaction(lastTx.copy(id = 0))
+            repository.restoreTransaction(lastTx.id)
             _uiState.value = _uiState.value.copy(
                 lastDeletedTransaction = null,
                 snackbarMessage = "Transaction restored"
+            )
+        }
+    }
+
+    fun undoDeleteContact() {
+        val lastC = _uiState.value.lastDeletedContact ?: return
+        viewModelScope.launch {
+            repository.restoreContact(lastC.id, lastC.name)
+            _uiState.value = _uiState.value.copy(
+                lastDeletedContact = null,
+                snackbarMessage = "Contact restored"
             )
         }
     }

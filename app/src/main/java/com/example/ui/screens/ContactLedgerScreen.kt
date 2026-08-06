@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
-import android.app.DatePickerDialog
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -50,7 +52,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Contact
@@ -69,7 +70,6 @@ import com.example.util.CurrencyFormatter
 import com.example.util.DateTimeUtils
 import com.example.util.ExportUtils
 import com.example.util.ReminderUtils
-import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,12 +80,15 @@ fun ContactLedgerScreen(
     onBackClick: () -> Unit,
     onEditContact: (Contact) -> Unit,
     onDeleteContact: (Long) -> Unit,
+    onEditTransaction: (Transaction) -> Unit,
     onDeleteTransaction: (Transaction) -> Unit,
     onOpenAddTransaction: (String) -> Unit, // Transaction.TYPE_YOU_GAVE or Transaction.TYPE_YOU_GOT
+    onViewHistory: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = KhataTheme.colors
     val context = LocalContext.current
+    val activeSymbol = CurrencyFormatter.getActiveCurrencySymbol()
 
     if (contact == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -95,8 +98,8 @@ fun ContactLedgerScreen(
     }
 
     var showOverflowMenu by remember { mutableStateOf(false) }
-    var selectedTxForDelete by remember { mutableStateOf<Transaction?>(null) }
-    val deleteSheetState = rememberModalBottomSheetState()
+    var selectedTxForOptions by remember { mutableStateOf<Transaction?>(null) }
+    val optionsSheetState = rememberModalBottomSheetState()
 
     val initials = contact.name.trim().split(" ")
         .mapNotNull { it.firstOrNull()?.toString() }
@@ -110,12 +113,18 @@ fun ContactLedgerScreen(
         else -> Pair(colors.textSecondary, "Settled up")
     }
 
+    fun makeCall(phone: String?) {
+        if (!phone.isNullOrBlank()) {
+            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
+            context.startActivity(intent)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {},
                 navigationIcon = {
-                    // Rule: Every screen has exactly one back-navigation affordance (top-left chevron)
                     IconButton(onClick = onBackClick, modifier = Modifier.testTag("back_button")) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -138,11 +147,27 @@ fun ContactLedgerScreen(
                         modifier = Modifier.background(colors.bgSurfaceElevated)
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Export Statement (CSV)", style = BodyStyle, color = colors.textPrimary) },
+                            text = { Text("Export Statement (PDF)", style = BodyStyle, color = colors.textPrimary) },
                             leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = colors.textSecondary) },
                             onClick = {
                                 showOverflowMenu = false
+                                ExportUtils.exportStatementPdf(context, contact, transactions)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export Statement (CSV)", style = BodyStyle, color = colors.textPrimary) },
+                            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, tint = colors.textSecondary) },
+                            onClick = {
+                                showOverflowMenu = false
                                 ExportUtils.exportStatementCsv(context, contact, transactions)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Activity History", style = BodyStyle, color = colors.textPrimary) },
+                            leadingIcon = { Icon(Icons.Default.History, contentDescription = null, tint = colors.textSecondary) },
+                            onClick = {
+                                showOverflowMenu = false
+                                onViewHistory(contact.id)
                             }
                         )
                         DropdownMenuItem(
@@ -167,8 +192,6 @@ fun ContactLedgerScreen(
             )
         },
         bottomBar = {
-            // FIXED FOOTER (Persists above the list, elevation/1 separation):
-            // Two equal-width buttons — "YOU GAVE ₹" (debit outline) / "YOU GOT ₹" (credit filled)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -183,7 +206,7 @@ fun ContactLedgerScreen(
                     horizontalArrangement = Arrangement.spacedBy(KhataTheme.spacing.md)
                 ) {
                     SecondaryButton(
-                        text = "YOU GAVE ₹",
+                        text = "YOU GAVE $activeSymbol",
                         onClick = { onOpenAddTransaction(Transaction.TYPE_YOU_GAVE) },
                         borderColor = colors.debit,
                         textColor = colors.debit,
@@ -191,7 +214,7 @@ fun ContactLedgerScreen(
                         testTag = "you_gave_button"
                     )
                     PrimaryButton(
-                        text = "YOU GOT ₹",
+                        text = "YOU GOT $activeSymbol",
                         onClick = { onOpenAddTransaction(Transaction.TYPE_YOU_GOT) },
                         containerColor = colors.credit,
                         contentColor = colors.bgSurface,
@@ -209,7 +232,7 @@ fun ContactLedgerScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // HEADER BLOCK (bg-surface, hairline bottom border)
+            // HEADER BLOCK
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -217,7 +240,7 @@ fun ContactLedgerScreen(
                     .padding(horizontal = KhataTheme.spacing.md, vertical = KhataTheme.spacing.sm),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Row 1: Avatar (48dp) + Name + Mobile
+                // Row 1: Avatar + Name + Mobile
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -241,13 +264,13 @@ fun ContactLedgerScreen(
                             style = HeadlineStyle.copy(fontSize = 20.sp),
                             color = colors.textPrimary
                         )
-                        if (!contact.mobileNumber.isNull_or_blank()) {
+                        if (!contact.mobileNumber.isNullOrEmpty()) {
                             Text(
                                 text = contact.mobileNumber ?: "",
                                 style = CaptionStyle,
                                 color = colors.textSecondary,
                                 modifier = Modifier.clickable {
-                                    ReminderUtils.makePhoneCall(context, contact.mobileNumber)
+                                    makeCall(contact.mobileNumber)
                                 }
                             )
                         }
@@ -256,7 +279,7 @@ fun ContactLedgerScreen(
 
                 Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
-                // Net Balance directly below, large (type/display), semantic color
+                // Net Balance
                 Text(
                     text = CurrencyFormatter.formatRupee(Math.abs(netBalance)),
                     style = DisplayStyle,
@@ -278,7 +301,7 @@ fun ContactLedgerScreen(
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
                     IconButton(
-                        onClick = { ReminderUtils.makePhoneCall(context, contact.mobileNumber) }
+                        onClick = { makeCall(contact.mobileNumber) }
                     ) {
                         Icon(
                             imageVector = Icons.Default.Call,
@@ -311,7 +334,7 @@ fun ContactLedgerScreen(
                         )
                     }
                     IconButton(
-                        onClick = { ExportUtils.exportStatementCsv(context, contact, transactions) }
+                        onClick = { ExportUtils.exportStatementPdf(context, contact, transactions) }
                     ) {
                         Icon(
                             imageVector = Icons.Default.PictureAsPdf,
@@ -340,13 +363,10 @@ fun ContactLedgerScreen(
                     )
                 }
             } else {
-                // Group transactions by date
                 val grouped = remember(transactions) {
                     transactions.groupBy { DateTimeUtils.formatDateHeader(it.transactionDate) }
                 }
 
-                // Compute running balances
-                var currentRunning = 0.0
                 val runningBalanceMap = remember(transactions) {
                     val map = mutableMapOf<Long, Double>()
                     var acc = 0.0
@@ -367,7 +387,6 @@ fun ContactLedgerScreen(
                         .weight(1f)
                 ) {
                     grouped.forEach { (dateHeader, txList) ->
-                        // Sticky date separator
                         item {
                             Box(
                                 modifier = Modifier
@@ -390,11 +409,10 @@ fun ContactLedgerScreen(
                                 transaction = tx,
                                 runningBalance = runningBalanceMap[tx.id],
                                 onClick = {
-                                    // Tap = open delete bottom sheet option
-                                    selectedTxForDelete = tx
+                                    selectedTxForOptions = tx
                                 },
                                 onLongClick = {
-                                    selectedTxForDelete = tx
+                                    selectedTxForOptions = tx
                                 }
                             )
                         }
@@ -404,12 +422,12 @@ fun ContactLedgerScreen(
         }
     }
 
-    // Delete Confirmation Bottom Sheet (keep material consistent per Part D.3)
-    if (selectedTxForDelete != null) {
-        val tx = selectedTxForDelete!!
+    // Transaction Action Sheet (Edit / Delete)
+    if (selectedTxForOptions != null) {
+        val tx = selectedTxForOptions!!
         ModalBottomSheet(
-            onDismissRequest = { selectedTxForDelete = null },
-            sheetState = deleteSheetState,
+            onDismissRequest = { selectedTxForOptions = null },
+            sheetState = optionsSheetState,
             containerColor = colors.bgSurfaceElevated
         ) {
             Column(
@@ -426,33 +444,35 @@ fun ContactLedgerScreen(
                 )
                 Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
                 Text(
-                    text = "${tx.type} ₹${CurrencyFormatter.formatRupee(tx.amount, showSymbol = false)} on ${DateTimeUtils.formatDate(tx.transactionDate)}",
+                    text = "${tx.type} ${CurrencyFormatter.formatRupee(tx.amount)} on ${DateTimeUtils.formatDate(tx.transactionDate)}",
                     style = BodyStyle,
                     color = colors.textSecondary
                 )
                 Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
 
+                PrimaryButton(
+                    text = "EDIT TRANSACTION",
+                    onClick = {
+                        val currentTx = tx
+                        selectedTxForOptions = null
+                        onEditTransaction(currentTx)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+
                 SecondaryButton(
                     text = "DELETE TRANSACTION",
                     onClick = {
                         onDeleteTransaction(tx)
-                        selectedTxForDelete = null
+                        selectedTxForOptions = null
                     },
                     borderColor = colors.debit,
                     textColor = colors.debit,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
-                PrimaryButton(
-                    text = "CANCEL",
-                    onClick = { selectedTxForDelete = null },
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
     }
-}
-
-private fun String?.isNull_or_blank(): Boolean {
-    return this == null || this.trim().isEmpty()
 }

@@ -29,16 +29,23 @@ import com.example.ui.components.KhataBottomBar
 import com.example.ui.components.NavDestination
 import com.example.ui.screens.AddEditContactScreen
 import com.example.ui.screens.AppLockScreen
+import com.example.ui.screens.BackupDataScreen
+import com.example.ui.screens.CategoryPaymentModeScreen
 import com.example.ui.screens.ContactLedgerScreen
+import com.example.ui.screens.CurrencySelectionBottomSheet
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.RemindersScreen
 import com.example.ui.screens.ReportsScreen
 import com.example.ui.screens.SearchScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.ui.screens.TraceLogScreen
+import com.example.ui.screens.TrashScreen
 import com.example.ui.theme.KhataTheme
 import com.example.ui.theme.KhataTrackTheme
 import com.example.ui.viewmodel.KhataViewModel
 import com.example.ui.viewmodel.Screen
+import com.example.util.CurrencyFormatter
+import com.example.util.CurrencyManager
 
 class MainActivity : ComponentActivity() {
 
@@ -61,23 +68,32 @@ class MainActivity : ComponentActivity() {
 
             val snackbarHostState = remember { SnackbarHostState() }
 
-            // Add Transaction bottom sheet state
+            // Add/Edit Transaction bottom sheet state
             var isAddTransactionSheetOpen by remember { mutableStateOf(false) }
             var transactionSheetInitialType by remember { mutableStateOf(Transaction.TYPE_YOU_GAVE) }
+            var editingTransactionForSheet by remember { mutableStateOf<Transaction?>(null) }
+
+            // Currency selection bottom sheet state
+            var isCurrencySheetOpen by remember { mutableStateOf(false) }
+
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
             // Handle snackbar messages & Undo action
             LaunchedEffect(uiState.snackbarMessage) {
                 val msg = uiState.snackbarMessage
                 if (msg != null) {
-                    val hasUndo = uiState.lastDeletedTransaction != null
+                    val hasTxUndo = uiState.lastDeletedTransaction != null
+                    val hasContactUndo = uiState.lastDeletedContact != null
+                    val hasUndo = hasTxUndo || hasContactUndo
+
                     val result = snackbarHostState.showSnackbar(
                         message = msg,
                         actionLabel = if (hasUndo) "Undo" else null,
                         duration = SnackbarDuration.Short
                     )
-                    if (result == SnackbarResult.ActionPerformed && hasUndo) {
-                        viewModel.undoDeleteTransaction()
+                    if (result == SnackbarResult.ActionPerformed) {
+                        if (hasTxUndo) viewModel.undoDeleteTransaction()
+                        else if (hasContactUndo) viewModel.undoDeleteContact()
                     }
                     viewModel.dismissSnackbar()
                 }
@@ -147,11 +163,24 @@ class MainActivity : ComponentActivity() {
                                         netBalance = activeContactNetBalance,
                                         onBackClick = { viewModel.navigateTo(Screen.HOME) },
                                         onEditContact = { viewModel.openEditContact(it) },
-                                        onDeleteContact = { viewModel.deleteContact(it) },
-                                        onDeleteTransaction = { viewModel.deleteTransaction(it) },
+                                        onDeleteContact = { contactId ->
+                                            activeContact?.let { c ->
+                                                viewModel.softDeleteContact(contactId, c.name)
+                                            }
+                                        },
+                                        onEditTransaction = { tx ->
+                                            editingTransactionForSheet = tx
+                                            transactionSheetInitialType = tx.type
+                                            isAddTransactionSheetOpen = true
+                                        },
+                                        onDeleteTransaction = { viewModel.softDeleteTransaction(it) },
                                         onOpenAddTransaction = { type ->
+                                            editingTransactionForSheet = null
                                             transactionSheetInitialType = type
                                             isAddTransactionSheetOpen = true
+                                        },
+                                        onViewHistory = { id ->
+                                            viewModel.openSingleTraceLog("CONTACT", id)
                                         }
                                     )
                                 }
@@ -183,7 +212,6 @@ class MainActivity : ComponentActivity() {
                                 Screen.REPORTS -> {
                                     ReportsScreen(
                                         transactions = activeContactTransactions.ifEmpty {
-                                            // Fallback to all transactions if no contact selected
                                             val allList = mutableListOf<Transaction>()
                                             activeContactTransactions.forEach { allList.add(it) }
                                             allList
@@ -208,22 +236,89 @@ class MainActivity : ComponentActivity() {
                                         isDarkMode = uiState.isDarkMode,
                                         onDarkModeToggle = { viewModel.toggleDarkMode(it) },
                                         isAppLockEnabled = uiState.isAppLockEnabled,
-                                        onAppLockToggle = { viewModel.toggleAppLock(it) }
+                                        onAppLockToggle = { viewModel.toggleAppLock(it) },
+                                        onOpenCurrency = { isCurrencySheetOpen = true },
+                                        onOpenTrash = { viewModel.navigateTo(Screen.TRASH) },
+                                        onOpenTraceLog = { viewModel.openFullTraceLog() },
+                                        onOpenCategoryManagement = { viewModel.navigateTo(Screen.CATEGORY_PAYMENT_MODE) },
+                                        onOpenBackupData = { viewModel.navigateTo(Screen.BACKUP_DATA) }
+                                    )
+                                }
+
+                                Screen.TRASH -> {
+                                    TrashScreen(
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.navigateTo(Screen.SETTINGS) }
+                                    )
+                                }
+
+                                Screen.TRACE_LOG -> {
+                                    TraceLogScreen(
+                                        viewModel = viewModel,
+                                        entityType = uiState.traceTargetEntityType,
+                                        entityId = uiState.traceTargetEntityId,
+                                        onBack = {
+                                            if (uiState.traceTargetEntityId != null) {
+                                                viewModel.navigateTo(Screen.CONTACT_DETAIL)
+                                            } else {
+                                                viewModel.navigateTo(Screen.SETTINGS)
+                                            }
+                                        }
+                                    )
+                                }
+
+                                Screen.CATEGORY_PAYMENT_MODE -> {
+                                    CategoryPaymentModeScreen(
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.navigateTo(Screen.SETTINGS) }
+                                    )
+                                }
+
+                                Screen.BACKUP_DATA -> {
+                                    BackupDataScreen(
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.navigateTo(Screen.SETTINGS) }
                                     )
                                 }
                             }
                         }
 
-                        // Add Transaction Bottom Sheet (Sub-5-second fast entry)
+                        // Add / Edit Transaction Bottom Sheet
                         if (isAddTransactionSheetOpen && activeContact != null) {
                             AddTransactionBottomSheet(
                                 sheetState = sheetState,
                                 initialType = transactionSheetInitialType,
                                 contactName = activeContact!!.name,
-                                onDismiss = { isAddTransactionSheetOpen = false },
-                                onSave = { amount, type, paymentMode, note, dueDate ->
-                                    viewModel.addTransaction(amount, type, paymentMode, note, dueDate)
+                                editingTransaction = editingTransactionForSheet,
+                                onDismiss = {
                                     isAddTransactionSheetOpen = false
+                                    editingTransactionForSheet = null
+                                },
+                                onSave = { amount, type, paymentMode, note, dueDate, referenceNumber, editingTxId ->
+                                    viewModel.saveOrUpdateTransaction(
+                                        amount = amount,
+                                        type = type,
+                                        paymentMode = paymentMode,
+                                        note = note,
+                                        dueDate = dueDate,
+                                        referenceNumber = referenceNumber,
+                                        editingTxId = editingTxId
+                                    )
+                                    isAddTransactionSheetOpen = false
+                                    editingTransactionForSheet = null
+                                }
+                            )
+                        }
+
+                        // Currency Selection Sheet
+                        if (isCurrencySheetOpen) {
+                            CurrencySelectionBottomSheet(
+                                onDismiss = { isCurrencySheetOpen = false },
+                                onCurrencySelected = { currency ->
+                                    CurrencyManager.setSelectedCurrency(this@MainActivity, currency.code)
+                                    CurrencyFormatter.updateActiveCurrency(currency.symbol, currency.code)
+                                    isCurrencySheetOpen = false
+                                    viewModel.showSnackbar("Currency updated to ${currency.symbol} (${currency.code})")
                                 }
                             )
                         }

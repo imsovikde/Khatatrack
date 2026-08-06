@@ -54,7 +54,13 @@ data class KhataColors(
     val divider: Color,
     val overlay: Color,
     val isDark: Boolean
-)
+) {
+    val surface: Color get() = bgSurface
+    val surfaceBorder: Color get() = divider
+    val background: Color get() = bgCanvas
+    val creditGreen: Color get() = credit
+    val debitRed: Color get() = debit
+}
 
 val LocalKhataColors = staticCompositionLocalOf {
     KhataColors(

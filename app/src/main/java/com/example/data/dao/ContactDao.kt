@@ -10,8 +10,11 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ContactDao {
-    @Query("SELECT * FROM contacts WHERE isArchived = 0 ORDER BY isPinned DESC, name ASC")
+    @Query("SELECT * FROM contacts WHERE isDeleted = 0 AND isArchived = 0 ORDER BY isPinned DESC, name ASC")
     fun getAllContacts(): Flow<List<Contact>>
+
+    @Query("SELECT * FROM contacts WHERE isDeleted = 1 ORDER BY deletedAt DESC")
+    fun getTrashContacts(): Flow<List<Contact>>
 
     @Query("SELECT * FROM contacts WHERE id = :id")
     fun getContactById(id: Long): Flow<Contact?>
@@ -22,6 +25,9 @@ interface ContactDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertContact(contact: Contact): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertContacts(contacts: List<Contact>)
+
     @Update
     suspend fun updateContact(contact: Contact)
 
@@ -31,9 +37,21 @@ interface ContactDao {
     @Query("UPDATE contacts SET isPinned = :isPinned WHERE id = :id")
     suspend fun setPinned(id: Long, isPinned: Boolean)
 
+    @Query("UPDATE contacts SET isDeleted = 1, deletedAt = :timestamp WHERE id = :id")
+    suspend fun softDeleteContact(id: Long, timestamp: Long = System.currentTimeMillis())
+
+    @Query("UPDATE contacts SET isDeleted = 0, deletedAt = NULL WHERE id = :id")
+    suspend fun restoreContact(id: Long)
+
     @Query("DELETE FROM contacts WHERE id = :id")
     suspend fun deleteContactPermanently(id: Long)
 
-    @Query("SELECT * FROM contacts WHERE isArchived = 0 AND (name LIKE '%' || :query || '%' OR mobileNumber LIKE '%' || :query || '%' OR addressNotes LIKE '%' || '%')")
+    @Query("DELETE FROM contacts WHERE isDeleted = 1 AND deletedAt IS NOT NULL AND deletedAt < :cutoffTimestamp")
+    suspend fun purgeOldDeletedContacts(cutoffTimestamp: Long)
+
+    @Query("DELETE FROM contacts")
+    suspend fun clearAllContacts()
+
+    @Query("SELECT * FROM contacts WHERE isDeleted = 0 AND isArchived = 0 AND (name LIKE '%' || :query || '%' OR mobileNumber LIKE '%' || :query || '%' OR addressNotes LIKE '%' || '%')")
     fun searchContacts(query: String): Flow<List<Contact>>
 }

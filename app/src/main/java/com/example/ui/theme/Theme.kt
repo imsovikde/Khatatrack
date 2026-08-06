@@ -1,9 +1,9 @@
 package com.example.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -105,6 +105,11 @@ object KhataTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalKhataColors.current
+
+    val typography: Typography
+        @Composable
+        @ReadOnlyComposable
+        get() = MaterialTheme.typography
 
     val spacing = KhataSpacing
     val shapes = KhataShapes

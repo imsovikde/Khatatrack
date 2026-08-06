@@ -33,6 +33,10 @@ object DateTimeUtils {
         return SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(timestamp))
     }
 
+    fun formatTimeOnly(timestamp: Long): String {
+        return formatTime(timestamp)
+    }
+
     fun formatDateTime(timestamp: Long): String {
         return SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(timestamp))
     }

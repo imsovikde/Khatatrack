@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +17,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MonetizationOn
@@ -42,6 +43,7 @@ import com.example.ui.theme.BodyStyle
 import com.example.ui.theme.CaptionStyle
 import com.example.ui.theme.KhataTheme
 import com.example.ui.theme.TitleStyle
+import com.example.util.CurrencyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,10 +52,16 @@ fun SettingsScreen(
     onDarkModeToggle: (Boolean) -> Unit,
     isAppLockEnabled: Boolean,
     onAppLockToggle: (Boolean) -> Unit,
+    onOpenCurrency: () -> Unit,
+    onOpenTrash: () -> Unit,
+    onOpenTraceLog: () -> Unit,
+    onOpenCategoryManagement: () -> Unit,
+    onOpenBackupData: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = KhataTheme.colors
     val context = LocalContext.current
+    val activeSymbol = CurrencyFormatter.getActiveCurrencySymbol()
 
     Scaffold(
         topBar = {
@@ -80,7 +88,7 @@ fun SettingsScreen(
         ) {
             // APPEARANCE GROUP
             Text(
-                text = "APPEARANCE",
+                text = "APPEARANCE & REGIONAL",
                 style = CaptionStyle,
                 color = colors.textSecondary,
                 modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
@@ -122,9 +130,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colors.bgSurface)
-                    .clickable {
-                        Toast.makeText(context, "Currency set to Indian Rupee (₹)", Toast.LENGTH_SHORT).show()
-                    }
+                    .clickable { onOpenCurrency() }
                     .padding(horizontal = KhataTheme.spacing.md, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -136,9 +142,79 @@ fun SettingsScreen(
                         tint = colors.textSecondary
                     )
                     Spacer(modifier = Modifier.padding(horizontal = 8.dp))
-                    Text(text = "Default Currency", style = BodyStyle, color = colors.textPrimary)
+                    Text(text = "Global Currency", style = BodyStyle, color = colors.textPrimary)
                 }
-                Text(text = "INR (₹)", style = BodyStyle, color = colors.textSecondary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Active ($activeSymbol)", style = BodyStyle, color = colors.textSecondary)
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                        contentDescription = null,
+                        tint = colors.textDisabled,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
+
+            // RECOVERY & AUDIT
+            Text(
+                text = "RECOVERY & AUDIT",
+                style = CaptionStyle,
+                color = colors.textSecondary,
+                modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(colors.bgSurface)
+                    .clickable { onOpenTrash() }
+                    .padding(horizontal = KhataTheme.spacing.md, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Trash",
+                        tint = colors.textSecondary
+                    )
+                    Spacer(modifier = Modifier.padding(horizontal = 8.dp))
+                    Text(text = "Trash & Recycle Bin", style = BodyStyle, color = colors.textPrimary)
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    contentDescription = null,
+                    tint = colors.textDisabled
+                )
+            }
+
+            HorizontalDivider(color = colors.divider, thickness = 1.dp)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(colors.bgSurface)
+                    .clickable { onOpenTraceLog() }
+                    .padding(horizontal = KhataTheme.spacing.md, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = "Trace Log",
+                        tint = colors.textSecondary
+                    )
+                    Spacer(modifier = Modifier.padding(horizontal = 8.dp))
+                    Text(text = "Activity Trace Log", style = BodyStyle, color = colors.textPrimary)
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    contentDescription = null,
+                    tint = colors.textDisabled
+                )
             }
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
@@ -195,9 +271,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colors.bgSurface)
-                    .clickable {
-                        Toast.makeText(context, "Local database backed up to app cache", Toast.LENGTH_SHORT).show()
-                    }
+                    .clickable { onOpenBackupData() }
                     .padding(horizontal = KhataTheme.spacing.md, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -224,9 +298,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colors.bgSurface)
-                    .clickable {
-                        Toast.makeText(context, "Categories: Friend, Family, Customer, Supplier, Other", Toast.LENGTH_SHORT).show()
-                    }
+                    .clickable { onOpenCategoryManagement() }
                     .padding(horizontal = KhataTheme.spacing.md, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -238,7 +310,7 @@ fun SettingsScreen(
                         tint = colors.textSecondary
                     )
                     Spacer(modifier = Modifier.padding(horizontal = 8.dp))
-                    Text(text = "Manage Payment Categories", style = BodyStyle, color = colors.textPrimary)
+                    Text(text = "Manage Categories & Modes", style = BodyStyle, color = colors.textPrimary)
                 }
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
@@ -274,7 +346,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.padding(horizontal = 8.dp))
                     Text(text = "KhataTrack Version", style = BodyStyle, color = colors.textPrimary)
                 }
-                Text(text = "v1.0.0 (Minimalist)", style = BodyStyle, color = colors.textSecondary)
+                Text(text = "v2.0 (Advanced)", style = BodyStyle, color = colors.textSecondary)
             }
         }
     }

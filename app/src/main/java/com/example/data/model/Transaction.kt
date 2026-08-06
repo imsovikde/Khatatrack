@@ -28,9 +28,12 @@ data class Transaction(
     val paymentMode: String = "Cash", // Cash, UPI, Bank Transfer, Cheque, Card, Other
     val note: String? = null,
     val attachmentPhoto: String? = null,
+    val referenceNumber: String? = null,
     val collectionDueDate: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val isDeleted: Boolean = false,
+    val deletedAt: Long? = null
 ) {
     companion object {
         const val TYPE_YOU_GAVE = "YOU_GAVE"
