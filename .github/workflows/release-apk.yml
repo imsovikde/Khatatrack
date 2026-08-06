@@ -38,10 +38,10 @@ jobs:
       - name: Compile Android APK
         run: gradle assembleDebug --no-daemon
 
-      - name: Package Versioned APK
+      - name: Package Versioned APK with Maintainer Name
         run: |
           VERSION_TAG="v1.0.${{ github.run_number }}"
-          APK_NAME="KhataTrack-${VERSION_TAG}.apk"
+          APK_NAME="KhataTrack-SouvikDey-${VERSION_TAG}.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "${APK_NAME}"
           echo "RELEASE_TAG=${VERSION_TAG}" >> $GITHUB_ENV
           echo "APK_FILE=${APK_NAME}" >> $GITHUB_ENV
@@ -70,7 +70,7 @@ jobs:
           cat <<EOF > release_notes.md
           # 💸 KhataTrack Intelligent Release ${RELEASE_TAG} 🚀
 
-          ### 📱 Download Android APK
+          ### 📱 Download Android APK File
           👉 **[Download ${APK_FILE}](https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${APK_FILE})**
 
           ---
@@ -78,8 +78,9 @@ jobs:
           ## 🧠 Intelligent Commitment Release Notes
 
           #### ⚡ Latest Commitment Summary
+          - **APK Package Name**: \`${APK_FILE}\`
+          - **Maintainer**: **Souvik Dey** ([@imsovikde](https://github.com/imsovikde))
           - **Latest Commit**: \`${COMMIT_HASH}\` — **${COMMIT_MSG}**
-          - **Author**: Souvik Dey ([@imsovikde](https://github.com/imsovikde))
           - **Build Timestamp**: ${BUILD_DATE}
           - **Code Changes Stat**: \`${CHANGES_STAT}\`
           - **Target Environment**: Android 7.0+ (API 24 to 36)
@@ -107,14 +108,10 @@ jobs:
           *Automated by KhataTrack Intelligent Release Engine for Souvik Dey.*
           EOF
 
-      - name: Publish GitHub Release with APK Asset
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: "KhataTrack ${{ env.RELEASE_TAG }} 🚀"
-          body_path: release_notes.md
-          files: ${{ env.APK_FILE }}
-          draft: false
-          prerelease: false
+      - name: Publish GitHub Release with APK Asset via GH CLI
+        run: |
+          gh release create "${RELEASE_TAG}" "${APK_FILE}" \
+            --title "KhataTrack ${RELEASE_TAG} 🚀" \
+            --notes-file release_notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
