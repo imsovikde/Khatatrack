@@ -4,7 +4,7 @@
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin%202.0-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![CI Build](https://img.shields.io/badge/CI%20Build-Passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/imsovikde/Khatatrack/actions)
 [![Auto APK Release](https://img.shields.io/badge/Auto%20APK%20Release-Automated-brightgreen?style=for-the-badge&logo=github&logoColor=white)](https://github.com/imsovikde/Khatatrack/releases)
-[![Latest Release](https://img.shields.io/badge/Release-v1.0.1%20%7C%20Active-brightgreen?style=for-the-badge&logo=android&logoColor=white)](https://github.com/imsovikde/Khatatrack/releases)
+[![Latest Release](https://img.shields.io/badge/Release-v1.0.7%20%7C%20Verified%2028MB-brightgreen?style=for-the-badge&logo=android&logoColor=white)](https://github.com/imsovikde/Khatatrack/releases)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
 **KhataTrack** is a brand-minimalist, high-performance personal ledger Android application created by **[Souvik Dey](https://github.com/imsovikde)**. It empowers users to seamlessly manage financial transactions, track money given and received, schedule automated background debt reminders, and analyze personal financial health with smart AI enhancements.
@@ -114,10 +114,10 @@ flowchart LR
     F --> G[ Publish GitHub Release & Upload APK ]
 ```
 
-1. **Automatic Build on Every Commit**: Every time a commit is pushed to the `main` branch, GitHub Actions starts an isolated Android build runner.
-2. **Version Auto-Incrementing**: A unique release tag (e.g. `v1.0.1`, `v1.0.2`, `v1.0.X`) is automatically generated.
-3. **Emoji Release Notes**: The workflow parses your recent commit messages and formats a beautiful, structured release note complete with feature highlights and emojis.
-4. **Direct Download**: The compiled APK (`KhataTrack-vX.Y.Z.apk`) is automatically attached to the new GitHub Release section so you can download and test it immediately!
+1. **Automatic Build on Every Commit**: Every time a commit is pushed to the `main` branch or any branch, GitHub Actions starts an isolated Android build runner.
+2. **Version Auto-Incrementing & Persistence**: A unique release tag (e.g. `v1.0.7`, `v1.0.8`, `v1.0.X`) is generated for every single build. All previous release nodes and APK files are preserved permanently.
+3. **Emoji Release Notes**: The workflow parses your recent commit messages and formats a beautiful, structured release note complete with feature highlights, file size statistics, and emojis.
+4. **Direct Download**: The compiled APK (`KhataTrack-SouvikDey-main-vX.Y.Z.apk`) is automatically attached to the new GitHub Release section so you can download and test it immediately!
 
 ---
 
