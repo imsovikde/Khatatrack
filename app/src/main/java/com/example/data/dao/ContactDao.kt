@@ -46,6 +46,9 @@ interface ContactDao {
     @Query("DELETE FROM contacts WHERE id = :id")
     suspend fun deleteContactPermanently(id: Long)
 
+    @Query("SELECT * FROM contacts WHERE isDeleted = 1 AND deletedAt IS NOT NULL AND deletedAt < :cutoffTimestamp")
+    suspend fun getExpiredDeletedContactsSync(cutoffTimestamp: Long): List<Contact>
+
     @Query("DELETE FROM contacts WHERE isDeleted = 1 AND deletedAt IS NOT NULL AND deletedAt < :cutoffTimestamp")
     suspend fun purgeOldDeletedContacts(cutoffTimestamp: Long)
 

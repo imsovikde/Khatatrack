@@ -305,9 +305,12 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun togglePinContact(contactId: Long, currentIsPinned: Boolean) {
+    fun togglePinContact(contactId: Long, currentIsPinned: Boolean, name: String = "Contact") {
         viewModelScope.launch {
-            repository.setContactPinned(contactId, !currentIsPinned)
+            val newPinnedState = !currentIsPinned
+            repository.setContactPinned(contactId, newPinnedState, name)
+            val msg = if (newPinnedState) "'$name' pinned to top" else "'$name' unpinned"
+            showSnackbar(msg)
         }
     }
 

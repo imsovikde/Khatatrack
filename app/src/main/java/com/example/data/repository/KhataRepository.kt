@@ -144,8 +144,17 @@ class KhataRepository(
         }
     }
 
-    suspend fun setContactPinned(contactId: Long, isPinned: Boolean) {
+    suspend fun setContactPinned(contactId: Long, isPinned: Boolean, name: String = "Contact") {
         contactDao.setPinned(contactId, isPinned)
+        traceLogDao.insertTrace(
+            TraceLog(
+                entityType = "CONTACT",
+                entityId = contactId,
+                entityName = name,
+                action = if (isPinned) "PIN" else "UNPIN",
+                fieldChanged = "isPinned: ${!isPinned} -> $isPinned"
+            )
+        )
     }
 
     suspend fun archiveContact(contactId: Long) {
@@ -291,6 +300,35 @@ class KhataRepository(
 
     suspend fun purgeOldTrash(retentionDays: Int) {
         val cutoff = System.currentTimeMillis() - (retentionDays.toLong() * 86400000L)
+
+        // Find expired contacts to log in TraceLog before deletion
+        val expiredContacts = contactDao.getExpiredDeletedContactsSync(cutoff)
+        for (contact in expiredContacts) {
+            traceLogDao.insertTrace(
+                TraceLog(
+                    entityType = "CONTACT",
+                    entityId = contact.id,
+                    entityName = contact.name,
+                    action = "PURGE",
+                    fieldChanged = "Auto-purged by WorkManager CleanupWorker (> $retentionDays days)"
+                )
+            )
+        }
+
+        // Find expired transactions to log in TraceLog before deletion
+        val expiredTxs = transactionDao.getExpiredDeletedTransactionsSync(cutoff)
+        for (tx in expiredTxs) {
+            traceLogDao.insertTrace(
+                TraceLog(
+                    entityType = "TRANSACTION",
+                    entityId = tx.id,
+                    entityName = "Tx #${tx.id} (${tx.type} ${tx.amount})",
+                    action = "PURGE",
+                    fieldChanged = "Auto-purged by WorkManager CleanupWorker (> $retentionDays days)"
+                )
+            )
+        }
+
         contactDao.purgeOldDeletedContacts(cutoff)
         transactionDao.purgeOldDeletedTransactions(cutoff)
     }

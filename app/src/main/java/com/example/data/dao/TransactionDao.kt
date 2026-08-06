@@ -49,6 +49,9 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE contactId = :contactId")
     suspend fun deleteTransactionsForContact(contactId: Long)
 
+    @Query("SELECT * FROM transactions WHERE isDeleted = 1 AND deletedAt IS NOT NULL AND deletedAt < :cutoffTimestamp")
+    suspend fun getExpiredDeletedTransactionsSync(cutoffTimestamp: Long): List<Transaction>
+
     @Query("DELETE FROM transactions WHERE isDeleted = 1 AND deletedAt IS NOT NULL AND deletedAt < :cutoffTimestamp")
     suspend fun purgeOldDeletedTransactions(cutoffTimestamp: Long)
 

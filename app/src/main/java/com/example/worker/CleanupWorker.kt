@@ -7,7 +7,7 @@ import com.example.data.db.KhataDatabase
 import com.example.data.repository.KhataRepository
 import com.example.util.TrashRetentionManager
 
-class TrashCleanupWorker(
+class CleanupWorker(
     appContext: Context,
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
@@ -33,3 +33,5 @@ class TrashCleanupWorker(
         }
     }
 }
+
+typealias TrashCleanupWorker = CleanupWorker

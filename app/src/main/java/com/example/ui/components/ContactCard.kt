@@ -1,7 +1,8 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,7 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.SouthWest
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,10 +40,13 @@ import com.example.ui.theme.TitleStyle
 import com.example.util.CurrencyFormatter
 import com.example.util.DateTimeUtils
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ContactCard(
     contactWithBalance: ContactWithBalance,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    onPinClick: (() -> Unit)? = null,
     onCallClick: (() -> Unit)? = null,
     onRemindClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -64,7 +70,10 @@ fun ContactCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .testTag("contact_card_${contact.id}")
     ) {
         Row(
@@ -78,7 +87,7 @@ fun ContactCard(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(colors.divider),
+                    .background(if (contact.isPinned) colors.creditSurface else colors.divider),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -86,7 +95,7 @@ fun ContactCard(
                     style = TitleStyle.copy(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = colors.textPrimary
+                        color = if (contact.isPinned) colors.credit else colors.textPrimary
                     )
                 )
             }
@@ -106,9 +115,11 @@ fun ContactCard(
                     )
                     if (contact.isPinned) {
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "📌",
-                            style = CaptionStyle
+                        Icon(
+                            imageVector = Icons.Default.PushPin,
+                            contentDescription = "Pinned",
+                            tint = colors.credit,
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
@@ -118,6 +129,20 @@ fun ContactCard(
                     style = CaptionStyle,
                     color = colors.textSecondary
                 )
+            }
+
+            if (onPinClick != null) {
+                IconButton(
+                    onClick = onPinClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = if (contact.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                        contentDescription = if (contact.isPinned) "Unpin contact" else "Pin contact",
+                        tint = if (contact.isPinned) colors.credit else colors.textDisabled,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(KhataTheme.spacing.sm))

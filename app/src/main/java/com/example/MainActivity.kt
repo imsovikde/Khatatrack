@@ -152,7 +152,9 @@ class MainActivity : ComponentActivity() {
                                         onFilterSelect = { viewModel.setFilter(it) },
                                         onContactClick = { contactId -> viewModel.openContactDetail(contactId) },
                                         onAddContactClick = { viewModel.openAddContact() },
-                                        onSearchClick = { viewModel.navigateTo(Screen.SEARCH) }
+                                        onSearchClick = { viewModel.navigateTo(Screen.SEARCH) },
+                                        onTogglePin = { contactId, isPinned, name -> viewModel.togglePinContact(contactId, isPinned, name) },
+                                        onDeleteContact = { contactId, name -> viewModel.softDeleteContact(contactId, name) }
                                     )
                                 }
 
@@ -231,12 +233,14 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                Screen.SETTINGS -> {
+                                 Screen.SETTINGS -> {
                                     SettingsScreen(
                                         isDarkMode = uiState.isDarkMode,
                                         onDarkModeToggle = { viewModel.toggleDarkMode(it) },
                                         isAppLockEnabled = uiState.isAppLockEnabled,
                                         onAppLockToggle = { viewModel.toggleAppLock(it) },
+                                        retentionDays = viewModel.getTrashRetentionDays(),
+                                        onRetentionDaysChange = { viewModel.setTrashRetentionDays(it) },
                                         onOpenCurrency = { isCurrencySheetOpen = true },
                                         onOpenTrash = { viewModel.navigateTo(Screen.TRASH) },
                                         onOpenTraceLog = { viewModel.openFullTraceLog() },

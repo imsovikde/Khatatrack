@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,10 +15,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,11 +31,17 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +55,7 @@ import com.example.data.repository.SummaryTotals
 import com.example.ui.components.ContactCard
 import com.example.ui.components.EmptyState
 import com.example.ui.components.SemanticChip
+import com.example.ui.theme.BodyStyle
 import com.example.ui.theme.CaptionStyle
 import com.example.ui.theme.DisplayStyle
 import com.example.ui.theme.HeadlineStyle
@@ -61,9 +74,16 @@ fun HomeScreen(
     onContactClick: (Long) -> Unit,
     onAddContactClick: () -> Unit,
     onSearchClick: () -> Unit,
+    onTogglePin: ((Long, Boolean, String) -> Unit)? = null,
+    onDeleteContact: ((Long, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = KhataTheme.colors
+    var actionSheetContact by remember { mutableStateOf<ContactWithBalance?>(null) }
+    val sheetState = rememberModalBottomSheetState()
+
+    val pinnedContacts = remember(contacts) { contacts.filter { it.contact.isPinned } }
+    val otherContacts = remember(contacts) { contacts.filter { !it.contact.isPinned } }
 
     Scaffold(
         topBar = {
@@ -91,7 +111,6 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            // Part C Spec: Single FAB (Home screen only): 56dp circular, "+" icon only (no text label)
             FloatingActionButton(
                 onClick = onAddContactClick,
                 shape = KhataTheme.shapes.lg,
@@ -116,8 +135,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // SUMMARY CARD (Part D.1 Layout)
-            // Three-column layout: "You'll Get", "You'll Pay", "Net" (visually dominant, display font)
+            // SUMMARY CARD
             Card(
                 shape = KhataTheme.shapes.md,
                 colors = CardDefaults.cardColors(containerColor = colors.bgSurface),
@@ -133,7 +151,6 @@ fun HomeScreen(
                         .padding(KhataTheme.spacing.md),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Net balance - THE HERO NUMBER
                     Text(
                         text = "NET BALANCE",
                         style = CaptionStyle,
@@ -160,7 +177,6 @@ fun HomeScreen(
                     HorizontalDivider(color = colors.divider, thickness = 1.dp)
                     Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
-                    // Two columns: You'll Get vs You'll Pay
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceAround
@@ -207,7 +223,7 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
 
-            // Segmented Filter Row (chips)
+            // Filter Chips
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -240,7 +256,7 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
 
-            // Contact List or Empty State
+            // Contact List with Pinned Section Header
             if (contacts.isEmpty()) {
                 EmptyState(
                     message = if (currentFilter == FilterOption.ALL) "No contacts added yet" else "No matching balances",
@@ -256,12 +272,172 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .weight(1f)
                 ) {
-                    items(contacts, key = { it.contact.id }) { item ->
-                        ContactCard(
-                            contactWithBalance = item,
-                            onClick = { onContactClick(item.contact.id) }
-                        )
+                    if (pinnedContacts.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "PINNED CONTACTS",
+                                style = CaptionStyle.copy(fontWeight = FontWeight.Bold),
+                                color = colors.credit,
+                                modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
+                            )
+                        }
+                        items(pinnedContacts, key = { "pinned_${it.contact.id}" }) { item ->
+                            ContactCard(
+                                contactWithBalance = item,
+                                onClick = { onContactClick(item.contact.id) },
+                                onLongClick = { actionSheetContact = item },
+                                onPinClick = {
+                                    onTogglePin?.invoke(item.contact.id, item.contact.isPinned, item.contact.name)
+                                }
+                            )
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "ALL CONTACTS",
+                                style = CaptionStyle.copy(fontWeight = FontWeight.Bold),
+                                color = colors.textSecondary,
+                                modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
+                            )
+                        }
+                        items(otherContacts, key = { "all_${it.contact.id}" }) { item ->
+                            ContactCard(
+                                contactWithBalance = item,
+                                onClick = { onContactClick(item.contact.id) },
+                                onLongClick = { actionSheetContact = item },
+                                onPinClick = {
+                                    onTogglePin?.invoke(item.contact.id, item.contact.isPinned, item.contact.name)
+                                }
+                            )
+                        }
+                    } else {
+                        items(contacts, key = { it.contact.id }) { item ->
+                            ContactCard(
+                                contactWithBalance = item,
+                                onClick = { onContactClick(item.contact.id) },
+                                onLongClick = { actionSheetContact = item },
+                                onPinClick = {
+                                    onTogglePin?.invoke(item.contact.id, item.contact.isPinned, item.contact.name)
+                                }
+                            )
+                        }
                     }
+                }
+            }
+        }
+    }
+
+    // Long Press Action Bottom Sheet
+    val currentSheetContact = actionSheetContact
+    if (currentSheetContact != null) {
+        ModalBottomSheet(
+            onDismissRequest = { actionSheetContact = null },
+            sheetState = sheetState,
+            containerColor = colors.bgSurface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp, start = 16.dp, end = 16.dp, top = 8.dp)
+            ) {
+                Text(
+                    text = currentSheetContact.contact.name,
+                    style = TitleStyle.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
+                    color = colors.textPrimary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Text(
+                    text = currentSheetContact.contact.mobileNumber ?: "No Phone",
+                    style = CaptionStyle,
+                    color = colors.textSecondary,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                HorizontalDivider(color = colors.divider, thickness = 1.dp)
+
+                // Pin / Unpin Action
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            val c = currentSheetContact.contact
+                            actionSheetContact = null
+                            onTogglePin?.invoke(c.id, c.isPinned, c.name)
+                        }
+                        .padding(vertical = 14.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (currentSheetContact.contact.isPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
+                        contentDescription = null,
+                        tint = colors.credit,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = if (currentSheetContact.contact.isPinned) "Unpin Contact" else "Pin Contact to Top",
+                        style = BodyStyle,
+                        color = colors.textPrimary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // View Ledger Action
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            val id = currentSheetContact.contact.id
+                            actionSheetContact = null
+                            onContactClick(id)
+                        }
+                        .padding(vertical = 14.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.OpenInNew,
+                        contentDescription = null,
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "Open Ledger",
+                        style = BodyStyle,
+                        color = colors.textPrimary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Delete Contact Action
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            val c = currentSheetContact.contact
+                            actionSheetContact = null
+                            onDeleteContact?.invoke(c.id, c.name)
+                        }
+                        .padding(vertical = 14.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = colors.debit,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "Move to Trash",
+                        style = BodyStyle,
+                        color = colors.debit,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
