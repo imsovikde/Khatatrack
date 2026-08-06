@@ -1,65 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="220"
+    android:viewportHeight="220">
     
     <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:scaleX="0.8"
-        android:scaleY="0.8">
+        android:translateX="51.8"
+        android:translateY="41.5">
 
-        <!-- Vertical Bar -->
+        <!-- Left White Bar (cls-1) -->
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M 30,22 L 30,22 A 6,6 0 0 1 36,28 L 36,80 A 6,6 0 0 1 30,86 L 30,86 A 6,6 0 0 1 24,80 L 24,28 A 6,6 0 0 1 30,22 Z" />
+            android:pathData="m26.6 80.3-8.3-9.3c-2.5-3-2.8-8.5 0.6-12l7.7-8.4v-45.6c0-1.5-1.2-2.7-2.7-2.7h-9.7c-6-0.1-12.4 5.2-12.4 11.6v101.8c0 6.3 4.8 11.4 11.9 11.3h10c1.7 0 2.9-1.2 2.9-2.7v-44z" />
 
-        <!-- Black Gap for White Arrow -->
+        <!-- Green Upward Arrow (cls-2) -->
         <path
-            android:strokeColor="#000000"
-            android:strokeWidth="16"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"
-            android:pathData="M 32,58 C 42,72 50,78 64,78 L 74,78" />
-        <path
-            android:fillColor="#000000"
-            android:pathData="M 81,95 L 50,95 L 81,64 Z" />
+            android:fillColor="#28D7B9"
+            android:pathData="m83.6 8.2 8.2 8-0.2 0.4c-2.4 2.9-5.9 5.9-11.3 5.9h-9.3c-6.8 0-15.6 1.1-22.3 7.9l-27.2 29.6c-2.2 2-3 6.4-0.4 9.8l9 10.5c0.1-2.1 0.8-3.8 2.9-5.8l27.2-28.9c2.7-2.6 6.7-5.2 12-5.2h9.4c7.5 0 15.3-1.1 22.2-7.7l1.6-1.8 7.8 7.1v-29.8h-29.6z" />
 
-        <!-- White Arrow -->
-        <path
-            android:strokeColor="#FFFFFF"
-            android:strokeWidth="10"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"
-            android:pathData="M 32,58 C 42,72 50,78 64,78 L 74,78" />
+        <!-- White Downward Arrow (cls-1) -->
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M 78,92 L 54,92 L 78,68 Z" />
-
-        <!-- Black Gap for Green Arrow -->
-        <path
-            android:strokeColor="#000000"
-            android:strokeWidth="16"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"
-            android:pathData="M 26,50 C 36,36 44,30 64,30 L 74,30" />
-        <path
-            android:fillColor="#000000"
-            android:pathData="M 81,13 L 50,13 L 81,44 Z" />
-
-        <!-- Green Arrow -->
-        <path
-            android:strokeColor="#3ED9B5"
-            android:strokeWidth="10"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"
-            android:pathData="M 26,50 C 36,36 44,30 64,30 L 74,30" />
-        <path
-            android:fillColor="#3ED9B5"
-            android:pathData="M 78,16 L 54,16 L 78,40 Z" />
-
+            android:pathData="m108.9 115.5-0.8-1.9c-1.9-10.5-10.1-22.8-26.2-22.9h-9.9c-4.2 0-8.6-1.7-11.8-5l-17-18.3-8.8 8.9c-2 1.9-3.1 5.5-0.3 8.6l15 15.4c5 5.1 11.5 8.9 22.7 8.9h9.2c5.6-0.2 9.6 2.8 11.8 6.2l1.7 4.3-0.2 0.4-7.9 4.6 22.1 10.5 6.3-22.4-5.9 2.7z" />
+            
     </group>
 </vector>
