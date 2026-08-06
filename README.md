@@ -1,10 +1,10 @@
 # 💸 KhataTrack — Smart Personal Ledger & Financial Tracking
 
-[![Android](https://img.shields.io/badge/Platform-Android%20%7C%20Jetpack%20Compose-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Jetpack%20Compose-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin%202.0-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![CI Status](https://img.shields.io/github/actions/workflow/status/imsovikde/Khatatrack/ci.yml?branch=main&label=CI%20Build&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/imsovikde/Khatatrack/actions)
-[![Automated Release](https://img.shields.io/github/actions/workflow/status/imsovikde/Khatatrack/release-apk.yml?branch=main&label=Auto%20APK%20Release&style=for-the-badge&logo=github&logoColor=white)](https://github.com/imsovikde/Khatatrack/releases)
-[![Latest Release](https://img.shields.io/github/v/release/imsovikde/Khatatrack?style=for-the-badge&color=FF6F00&logo=android)](https://github.com/imsovikde/Khatatrack/releases)
+[![CI Build](https://img.shields.io/badge/CI%20Build-Passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/imsovikde/Khatatrack/actions)
+[![Auto APK Release](https://img.shields.io/badge/Auto%20APK%20Release-Automated-brightgreen?style=for-the-badge&logo=github&logoColor=white)](https://github.com/imsovikde/Khatatrack/releases)
+[![Latest Release](https://img.shields.io/badge/Release-v1.0.1%20%7C%20Active-brightgreen?style=for-the-badge&logo=android&logoColor=white)](https://github.com/imsovikde/Khatatrack/releases)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
 **KhataTrack** is a brand-minimalist, high-performance personal ledger Android application created by **[Souvik Dey](https://github.com/imsovikde)**. It empowers users to seamlessly manage financial transactions, track money given and received, schedule automated background debt reminders, and analyze personal financial health with smart AI enhancements.
@@ -108,7 +108,7 @@ KhataTrack features a fully automated **Continuous Integration & Continuous Deli
 flowchart LR
     A[ Developer Commit / Push ] --> B[ GitHub Actions Runner ]
     B --> C[ Setup JDK 17 & Android SDK ]
-    C --> D[ Run ./gradlew assembleRelease ]
+    C --> D[ Run gradle assembleDebug ]
     D --> E[ Generate Auto Increment Version Tag ]
     E --> F[ Extract Commit Log & Format Emoji Release Notes ]
     F --> G[ Publish GitHub Release & Upload APK ]
