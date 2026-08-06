@@ -6,56 +6,60 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <!-- Left Vertical Stem (The Ledger Spine & Monogram Pillar) -->
-    <path
-        android:pathData="M34,30 C34,27.8 35.8,26 38,26 L44,26 C46.2,26 48,27.8 48,30 L48,78 C48,80.2 46.2,82 44,82 L38,82 C35.8,82 34,80.2 34,78 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="34"
-                android:startY="26"
-                android:endX="48"
-                android:endY="82"
-                android:type="linear">
-                <item android:offset="0.0" android:color="#52E0C4" />
-                <item android:offset="1.0" android:color="#0C6B58" />
-            </gradient>
-        </aapt:attr>
-    </path>
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.8"
+        android:scaleY="0.8">
 
-    <!-- Upper Wing (The Ledger Book Fold & Monogram K Top Diagonal) -->
-    <path
-        android:pathData="M44,50 L66,31 C67.6,29.6 70,30.8 70,33 L70,41 C70,42.2 69.4,43.3 68.4,44.1 L54,55 L44,50 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="44"
-                android:startY="30"
-                android:endX="70"
-                android:endY="55"
-                android:type="linear">
-                <item android:offset="0.0" android:color="#3ED9B5" />
-                <item android:offset="1.0" android:color="#1BAA8A" />
-            </gradient>
-        </aapt:attr>
-    </path>
+        <!-- Vertical Bar -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M 30,22 L 30,22 A 6,6 0 0 1 36,28 L 36,80 A 6,6 0 0 1 30,86 L 30,86 A 6,6 0 0 1 24,80 L 24,28 A 6,6 0 0 1 30,22 Z" />
 
-    <!-- Lower Wing (The Ascending Financial Balance Curve & Monogram K Bottom Diagonal) -->
-    <path
-        android:pathData="M50,52 L68.2,73.1 C69.3,74.4 68.4,76 66.8,76 L58,76 C56.9,76 55.9,75.4 55.2,74.6 L44,61 L50,52 Z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="44"
-                android:startY="52"
-                android:endX="70"
-                android:endY="76"
-                android:type="linear">
-                <item android:offset="0.0" android:color="#62F2D0" />
-                <item android:offset="1.0" android:color="#24C29E" />
-            </gradient>
-        </aapt:attr>
-    </path>
+        <!-- Black Gap for White Arrow -->
+        <path
+            android:strokeColor="#000000"
+            android:strokeWidth="16"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 32,58 C 42,72 50,78 64,78 L 74,78" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M 81,95 L 50,95 L 81,64 Z" />
 
-    <!-- Core Focal Ledger Dot / Balance Indicator -->
-    <path
-        android:pathData="M70,54 A4,4 0 1,1 70,53.9 Z"
-        android:fillColor="#E5F5F0" />
+        <!-- White Arrow -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="10"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 32,58 C 42,72 50,78 64,78 L 74,78" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M 78,92 L 54,92 L 78,68 Z" />
+
+        <!-- Black Gap for Green Arrow -->
+        <path
+            android:strokeColor="#000000"
+            android:strokeWidth="16"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 26,50 C 36,36 44,30 64,30 L 74,30" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M 81,13 L 50,13 L 81,44 Z" />
+
+        <!-- Green Arrow -->
+        <path
+            android:strokeColor="#3ED9B5"
+            android:strokeWidth="10"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 26,50 C 36,36 44,30 64,30 L 74,30" />
+        <path
+            android:fillColor="#3ED9B5"
+            android:pathData="M 78,16 L 54,16 L 78,40 Z" />
+
+    </group>
 </vector>
