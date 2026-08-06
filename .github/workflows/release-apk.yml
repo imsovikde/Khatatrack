@@ -1,0 +1,91 @@
+name: Real-Time APK Release Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build APK & Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x gradlew
+
+      - name: Prepare Environment Setup
+        run: |
+          if [ ! -f .env ]; then
+            cp .env.example .env
+          fi
+
+      - name: Compile Android APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Package Release APK
+        run: |
+          VERSION_TAG="v1.0.${{ github.run_number }}"
+          APK_NAME="KhataTrack-${VERSION_TAG}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "${APK_NAME}"
+          echo "RELEASE_TAG=${VERSION_TAG}" >> $GITHUB_ENV
+          echo "APK_FILE=${APK_NAME}" >> $GITHUB_ENV
+
+      - name: Generate Rich Emoji Release Notes
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
+
+          cat <<EOF > release_notes.md
+          # 💸 KhataTrack Release ${RELEASE_TAG} 🚀
+
+          ### 📱 Download Installable APK
+          👉 **[Download ${APK_FILE}](https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${APK_FILE})**
+
+          ---
+
+          ### ⚡ Release Highlights & Commit Details
+          - **Commit**: \`${COMMIT_HASH}\` — ${COMMIT_MSG}
+          - **Author**: Souvik Dey ([@imsovikde](https://github.com/imsovikde))
+          - **Build Timestamp**: ${BUILD_DATE}
+          - **Target Platform**: Android (API 24+)
+
+          ---
+
+          ### ✨ What's New in this Version:
+          - 🛠️ **Automated Compilation**: Generated automatically upon commit.
+          - ⚡ **Performance Polish**: Native Jetpack Compose UI rendering & Room database sync.
+          - 🔔 **Reminder Services**: Persistent notification scheduling & state recovery.
+          - 🎨 **Visual Assets**: Updated vector graphics & custom branding.
+
+          ---
+          *Built with ❤️ by Souvik Dey for KhataTrack.*
+          EOF
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "KhataTrack ${{ env.RELEASE_TAG }} 🚀"
+          body_path: release_notes.md
+          files: ${{ env.APK_FILE }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
