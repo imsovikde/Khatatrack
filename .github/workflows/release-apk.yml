@@ -1,8 +1,9 @@
-name: Real-Time APK Release Pipeline
+name: Intelligent Real-Time APK Release Engine
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - '**'
   workflow_dispatch:
 
 permissions:
@@ -10,11 +11,11 @@ permissions:
 
 jobs:
   build-and-release:
-    name: Build APK & Publish Release
+    name: Build APK & Publish Intelligent Release
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Codebase
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -25,10 +26,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
+      - name: Setup Gradle Build Engine
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Prepare Environment Setup
+      - name: Prepare Environment Properties
         run: |
           if [ ! -f .env ]; then
             cp .env.example .env
@@ -37,7 +38,7 @@ jobs:
       - name: Compile Android APK
         run: gradle assembleDebug --no-daemon
 
-      - name: Package Release APK
+      - name: Package Versioned APK
         run: |
           VERSION_TAG="v1.0.${{ github.run_number }}"
           APK_NAME="KhataTrack-${VERSION_TAG}.apk"
@@ -45,39 +46,68 @@ jobs:
           echo "RELEASE_TAG=${VERSION_TAG}" >> $GITHUB_ENV
           echo "APK_FILE=${APK_NAME}" >> $GITHUB_ENV
 
-      - name: Generate Rich Emoji Release Notes
+      - name: Intelligent Release Notes Engine
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           COMMIT_HASH=$(git rev-parse --short HEAD)
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
           BUILD_DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
 
-          cat <<EOF > release_notes.md
-          # 💸 KhataTrack Release ${RELEASE_TAG} 🚀
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..HEAD"
+          else
+            RANGE="HEAD~5..HEAD"
+          fi
 
-          ### 📱 Download Installable APK
+          FEATS=$(git log ${RANGE} --grep="^feat" --pretty=format:"- 🎨 %s (\`%h\`)" 2>/dev/null || echo "")
+          FIXES=$(git log ${RANGE} --grep="^fix" --pretty=format:"- 🐛 %s (\`%h\`)" 2>/dev/null || echo "")
+          PERFS=$(git log ${RANGE} --grep="^perf" --pretty=format:"- ⚡ %s (\`%h\`)" 2>/dev/null || echo "")
+          DOCS=$(git log ${RANGE} --grep="^docs" --pretty=format:"- 📝 %s (\`%h\`)" 2>/dev/null || echo "")
+          CHORES=$(git log ${RANGE} --grep="^\(chore\|ci\|build\)" --pretty=format:"- 📦 %s (\`%h\`)" 2>/dev/null || echo "")
+          ALL_COMMITS=$(git log ${RANGE} --oneline --no-merges -n 10 | sed 's/^/- 💡 /')
+          CHANGES_STAT=$(git log -1 --stat --oneline | tail -n 1)
+
+          cat <<EOF > release_notes.md
+          # 💸 KhataTrack Intelligent Release ${RELEASE_TAG} 🚀
+
+          ### 📱 Download Android APK
           👉 **[Download ${APK_FILE}](https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${APK_FILE})**
 
           ---
 
-          ### ⚡ Release Highlights & Commit Details
-          - **Commit**: \`${COMMIT_HASH}\` — ${COMMIT_MSG}
+          ## 🧠 Intelligent Commitment Release Notes
+
+          #### ⚡ Latest Commitment Summary
+          - **Latest Commit**: \`${COMMIT_HASH}\` — **${COMMIT_MSG}**
           - **Author**: Souvik Dey ([@imsovikde](https://github.com/imsovikde))
           - **Build Timestamp**: ${BUILD_DATE}
-          - **Target Platform**: Android (API 24+)
+          - **Code Changes Stat**: \`${CHANGES_STAT}\`
+          - **Target Environment**: Android 7.0+ (API 24 to 36)
 
           ---
 
-          ### ✨ What's New in this Version:
-          - 🛠️ **Automated Compilation**: Generated automatically upon commit.
-          - ⚡ **Performance Polish**: Native Jetpack Compose UI rendering & Room database sync.
-          - 🔔 **Reminder Services**: Persistent notification scheduling & state recovery.
-          - 🎨 **Visual Assets**: Updated vector graphics & custom branding.
+          ### 📋 Categorized Commitment Changes
+
+          ${FEATS:-"- 🎨 General feature enhancements and UI updates."}
+          ${FIXES:-"- 🐛 Bug fixes, stability patches, and null-safety improvements."}
+          ${PERFS:-"- ⚡ Performance optimizations & Jetpack Compose rendering speedups."}
+          ${DOCS:-"- 📝 Documentation, README polish & AGENTS.md guidelines."}
+          ${CHORES:-"- 📦 Gradle build config, dependencies & workflow updates."}
 
           ---
-          *Built with ❤️ by Souvik Dey for KhataTrack.*
+
+          ### 📜 Full Recent Commit History
+          ${ALL_COMMITS}
+
+          ---
+
+          > [!NOTE]
+          > All previous APK versions remain archived and accessible in the [Releases History Section](https://github.com/${{ github.repository }}/releases).
+
+          *Automated by KhataTrack Intelligent Release Engine for Souvik Dey.*
           EOF
 
-      - name: Publish GitHub Release
+      - name: Publish GitHub Release with APK Asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
