@@ -44,8 +44,8 @@ import com.example.ui.theme.KhataTheme
 enum class NavDestination(val route: String, val label: String, val filledIcon: ImageVector, val outlinedIcon: ImageVector) {
     HOME("home", "Home", Icons.Filled.Home, Icons.Outlined.Home),
     INCOME_EXPENSE("income_expense", "Income/Exp", Icons.Filled.Payments, Icons.Outlined.Payments),
+    AI_HUB("ai_hub", "AI Hub", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
     REMINDERS("reminders", "Reminders", Icons.Filled.Notifications, Icons.Outlined.Notifications),
-    REPORTS("reports", "Reports", Icons.Filled.Analytics, Icons.Outlined.Analytics),
     SETTINGS("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
 }
 
@@ -88,14 +88,14 @@ fun KhataBottomBar(
                     Icon(
                         imageVector = icon,
                         contentDescription = destination.label,
-                        tint = textColor,
+                        tint = if (isSelected && destination == NavDestination.AI_HUB) colors.credit else textColor,
                         modifier = Modifier.size(22.dp)
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = destination.label,
                         style = CaptionStyle.copy(fontSize = 11.sp),
-                        color = textColor
+                        color = if (isSelected && destination == NavDestination.AI_HUB) colors.credit else textColor
                     )
                     Spacer(modifier = Modifier.height(3.dp))
                     // Neutral primary-text underline indicator for active tab
@@ -104,7 +104,13 @@ fun KhataBottomBar(
                             .width(16.dp)
                             .height(2.dp)
                             .clip(RoundedCornerShape(1.dp))
-                            .background(if (isSelected) colors.textPrimary else colors.bgSurface)
+                            .background(
+                                when {
+                                    isSelected && destination == NavDestination.AI_HUB -> colors.credit
+                                    isSelected -> colors.textPrimary
+                                    else -> colors.bgSurface
+                                }
+                            )
                     )
                 }
             }

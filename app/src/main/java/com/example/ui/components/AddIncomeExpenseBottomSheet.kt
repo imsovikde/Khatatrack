@@ -146,7 +146,12 @@ fun AddIncomeExpenseBottomSheet(
         }
     }
 
-    val isReferenceRequired = selectedPaymentMode == "UPI" || selectedPaymentMode == "Bank Transfer" || selectedPaymentMode == "Card"
+    val refFieldLabel = when (selectedPaymentMode) {
+        "UPI", "Bank Transfer" -> "Reference / UTR / Order ID (optional)"
+        "Card" -> "Transaction ID / Order ID (optional)"
+        "Cheque" -> "Cheque Number (optional)"
+        else -> "Reference / Order ID (optional)"
+    }
 
     val datePickerDialog = remember(context) {
         val cal = Calendar.getInstance().apply { timeInMillis = selectedTimestamp }
@@ -313,17 +318,19 @@ fun AddIncomeExpenseBottomSheet(
                                         } else {
                                             isListeningVoice = false
                                             coroutineScope.launch {
-                                                val parsed = IntelligentParser.parseInputText(context, text, emptyList())
-                                                if (parsed.amount != null) amountText = parsed.amount.toString()
-                                                if (parsed.paymentMode.isNotBlank()) selectedPaymentMode = parsed.paymentMode
-                                                if (!parsed.note.isNull_or_blank_compat()) {
-                                                    note = parsed.note!!
-                                                    val cat = CategoryTagExtractor.extractCategoryTag(note)
-                                                    if (cat !in dynamicCategories) {
-                                                        dynamicCategories = listOf(cat) + dynamicCategories
-                                                    }
-                                                    selectedCategory = cat
+                                                // Use parseForIncomeExpense for income/expense-aware parsing
+                                                val parsed = IntelligentParser.parseForIncomeExpense(text)
+                                                // Auto-detect INCOME vs EXPENSE type from voice
+                                                type = parsed.type
+                                                if (parsed.amount != null) amountText = parsed.amount.let {
+                                                    if (it % 1.0 == 0.0) it.toLong().toString() else it.toString()
                                                 }
+                                                if (parsed.paymentMode.isNotBlank()) selectedPaymentMode = parsed.paymentMode
+                                                if (parsed.categoryTag.isNotBlank()) selectedCategory = parsed.categoryTag
+                                                if (parsed.note != null && parsed.note.isNotBlank()) {
+                                                    note = parsed.note
+                                                }
+                                                voiceStatusText = "Detected: ${parsed.type} via ${parsed.parsedSource}"
                                             }
                                         }
                                     },
@@ -432,21 +439,18 @@ fun AddIncomeExpenseBottomSheet(
                 }
             }
 
-            // Conditional Reference / UTR field
-            AnimatedVisibility(visible = isReferenceRequired) {
-                Column {
-                    Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
-                    OutlinedTextField(
-                        value = referenceNumber,
-                        onValueChange = { referenceNumber = it },
-                        label = { Text("Reference / UTR Number *") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("entry_ref_input"),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            }
+
+            // Reference / Order ID — always visible
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+            OutlinedTextField(
+                value = referenceNumber,
+                onValueChange = { referenceNumber = it },
+                label = { Text(refFieldLabel) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("entry_ref_input"),
+                shape = RoundedCornerShape(12.dp)
+            )
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
@@ -549,7 +553,7 @@ fun AddIncomeExpenseBottomSheet(
 
             // Save Button
             val amountVal = amountText.toDoubleOrNull()
-            val isValid = amountVal != null && amountVal > 0 && (!isReferenceRequired || referenceNumber.isNotBlank())
+            val isValid = amountVal != null && amountVal > 0
 
             PrimaryButton(
                 text = if (editingEntry != null) "UPDATE ENTRY" else "SAVE ENTRY",

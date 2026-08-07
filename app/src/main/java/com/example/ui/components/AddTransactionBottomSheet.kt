@@ -196,11 +196,11 @@ fun AddTransactionBottomSheet(
     val isGot = currentType == Transaction.TYPE_YOU_GOT
     val semanticColor = if (isGot) colors.credit else colors.debit
 
-    val isRefFieldVisible = selectedPaymentMode == "UPI" || selectedPaymentMode == "Bank Transfer" || selectedPaymentMode == "Cheque"
     val refFieldLabel = when (selectedPaymentMode) {
-        "UPI", "Bank Transfer" -> "Transaction Reference / UTR Number"
-        "Cheque" -> "Cheque Number"
-        else -> "Reference Number"
+        "UPI", "Bank Transfer" -> "Reference / UTR / Order ID (optional)"
+        "Cheque" -> "Cheque Number (optional)"
+        "Card" -> "Transaction ID / Order ID (optional)"
+        else -> "Reference / Order ID (optional)"
     }
 
     // Auto focus amount input on launch if new
@@ -603,40 +603,39 @@ fun AddTransactionBottomSheet(
                 }
             }
 
-            // Conditional Payment Reference / UTR / Cheque field
-            AnimatedVisibility(visible = isRefFieldVisible) {
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
-                    Text(
-                        text = refFieldLabel,
-                        style = CaptionStyle,
-                        color = colors.textSecondary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    BasicTextField(
-                        value = referenceNumberText,
-                        onValueChange = { referenceNumberText = it },
-                        textStyle = BodyStyle.copy(
-                            color = colors.textPrimary,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        cursorBrush = SolidColor(colors.textPrimary),
-                        modifier = Modifier.fillMaxWidth(),
-                        decorationBox = { inner ->
-                            Box {
-                                if (referenceNumberText.isEmpty()) {
-                                    Text(
-                                        text = "e.g., UTR129048123",
-                                        style = BodyStyle.copy(color = colors.textDisabled, fontFamily = FontFamily.Monospace)
-                                    )
-                                }
-                                inner()
+
+            // Reference / Order ID field — always visible
+            Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                Text(
+                    text = refFieldLabel,
+                    style = CaptionStyle,
+                    color = colors.textSecondary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                BasicTextField(
+                    value = referenceNumberText,
+                    onValueChange = { referenceNumberText = it },
+                    textStyle = BodyStyle.copy(
+                        color = colors.textPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    cursorBrush = SolidColor(colors.textPrimary),
+                    modifier = Modifier.fillMaxWidth().testTag("ref_id_input"),
+                    decorationBox = { inner ->
+                        Box {
+                            if (referenceNumberText.isEmpty()) {
+                                Text(
+                                    text = "e.g., UTR129048123, ORD-5678, CHQ-001",
+                                    style = BodyStyle.copy(color = colors.textDisabled, fontFamily = FontFamily.Monospace)
+                                )
                             }
+                            inner()
                         }
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    HorizontalDivider(color = colors.divider, thickness = 1.dp)
-                }
+                    }
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                HorizontalDivider(color = colors.divider, thickness = 1.dp)
             }
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.md))

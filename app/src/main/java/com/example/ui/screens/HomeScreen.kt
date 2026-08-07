@@ -317,78 +317,8 @@ fun HomeScreen(
                 }
             }
 
-            // FRICTIONLESS VOICE ENTRY BANNER
-            Card(
-                shape = KhataTheme.shapes.md,
-                colors = CardDefaults.cardColors(containerColor = colors.bgSurfaceElevated),
-                elevation = CardDefaults.cardElevation(defaultElevation = KhataTheme.elevation.restingCard),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = KhataTheme.spacing.md, vertical = 2.dp)
-                    .clickable { onQuickVoiceClick() }
-                    .testTag("quick_voice_banner")
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(colors.textPrimary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = null,
-                                tint = if (colors.isDark) colors.bgCanvas else colors.bgSurface,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Frictionless Voice Entry",
-                                style = TitleStyle.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
-                                color = colors.textPrimary
-                            )
-                            Text(
-                                text = "Speak: 'Gave Rahul 500 via UPI'",
-                                style = CaptionStyle,
-                                color = colors.textSecondary
-                            )
-                        }
-                    }
-                    Button(
-                        onClick = onQuickVoiceClick,
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colors.textPrimary,
-                            contentColor = if (colors.isDark) colors.bgCanvas else colors.bgSurface
-                        ),
-                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp),
-                        modifier = Modifier
-                            .height(36.dp)
-                            .testTag("speak_now_button")
-                    ) {
-                        Text(
-                            text = "Speak",
-                            style = LabelStyle.copy(fontWeight = FontWeight.Bold),
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
+
 
             // Filter Chips
             Row(

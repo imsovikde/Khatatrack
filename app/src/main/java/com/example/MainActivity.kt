@@ -139,8 +139,8 @@ class MainActivity : ComponentActivity() {
                     val showBottomNav = currentScreen in listOf(
                         Screen.HOME,
                         Screen.INCOME_EXPENSE,
+                        Screen.AI_HUB,
                         Screen.REMINDERS,
-                        Screen.REPORTS,
                         Screen.SETTINGS
                     )
 
@@ -170,6 +170,7 @@ class MainActivity : ComponentActivity() {
                             Screen.BACKUP_DATA -> viewModel.navigateTo(Screen.SETTINGS)
                             Screen.INCOME_EXPENSE -> viewModel.navigateTo(Screen.HOME)
                             Screen.AI_HUB -> viewModel.navigateTo(Screen.HOME)
+                            Screen.REPORTS -> viewModel.navigateTo(Screen.SETTINGS)
                             else -> viewModel.navigateTo(Screen.HOME)
                         }
                     }
@@ -181,8 +182,8 @@ class MainActivity : ComponentActivity() {
                                 val currentRoute = when (currentScreen) {
                                     Screen.HOME -> NavDestination.HOME.route
                                     Screen.INCOME_EXPENSE -> NavDestination.INCOME_EXPENSE.route
+                                    Screen.AI_HUB -> NavDestination.AI_HUB.route
                                     Screen.REMINDERS -> NavDestination.REMINDERS.route
-                                    Screen.REPORTS -> NavDestination.REPORTS.route
                                     Screen.SETTINGS -> NavDestination.SETTINGS.route
                                     else -> NavDestination.HOME.route
                                 }
@@ -192,8 +193,8 @@ class MainActivity : ComponentActivity() {
                                         when (destination) {
                                             NavDestination.HOME -> viewModel.navigateTo(Screen.HOME)
                                             NavDestination.INCOME_EXPENSE -> viewModel.navigateTo(Screen.INCOME_EXPENSE)
+                                            NavDestination.AI_HUB -> viewModel.navigateTo(Screen.AI_HUB)
                                             NavDestination.REMINDERS -> viewModel.navigateTo(Screen.REMINDERS)
-                                            NavDestination.REPORTS -> viewModel.navigateTo(Screen.REPORTS)
                                             NavDestination.SETTINGS -> viewModel.navigateTo(Screen.SETTINGS)
                                         }
                                     }
