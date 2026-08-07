@@ -123,6 +123,8 @@ fun AiAssistantScreen(
     var endpointUrl by remember { mutableStateOf(AiConfigManager.getCustomEndpoint(context)) }
     var apiKeyInput by remember { mutableStateOf(AiConfigManager.getCustomApiKey(context)) }
     var modelNameInput by remember { mutableStateOf(AiConfigManager.getCustomModel(context)) }
+    var availableModels by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isModelDropdownExpanded by remember { mutableStateOf(false) }
     var isValidating by remember { mutableStateOf(false) }
     var validationStatusMessage by remember { mutableStateOf<String?>(null) }
     var isValidationSuccess by remember { mutableStateOf<Boolean?>(null) }
@@ -574,6 +576,17 @@ fun AiAssistantScreen(
                                         style = CaptionStyle,
                                         color = colors.textSecondary
                                     )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    val currentConfigText = if (currentProvider == AiProvider.GEMINI) {
+                                        "Currently using Free Tier Built-in Model"
+                                    } else {
+                                        "Currently using ${currentProvider.displayName} - Model: ${modelNameInput}"
+                                    }
+                                    Text(
+                                        text = currentConfigText,
+                                        style = CaptionStyle,
+                                        color = colors.credit
+                                    )
 
                                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -627,37 +640,95 @@ fun AiAssistantScreen(
                                         )
 
                                         Spacer(modifier = Modifier.height(12.dp))
+                                        
+                                        if (availableModels.isNotEmpty()) {
+                                            ExposedDropdownMenuBox(
+                                                expanded = isModelDropdownExpanded,
+                                                onExpandedChange = { isModelDropdownExpanded = !isModelDropdownExpanded }
+                                            ) {
+                                                OutlinedTextField(
+                                                    value = modelNameInput,
+                                                    onValueChange = { modelNameInput = it },
+                                                    label = { Text("Selected Model") },
+                                                    readOnly = false,
+                                                    trailingIcon = {
+                                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = isModelDropdownExpanded)
+                                                    },
+                                                    colors = OutlinedTextFieldDefaults.colors(
+                                                        focusedContainerColor = colors.bgCanvas,
+                                                        unfocusedContainerColor = colors.bgCanvas
+                                                    ),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .menuAnchor()
+                                                )
+                                                ExposedDropdownMenu(
+                                                    expanded = isModelDropdownExpanded,
+                                                    onDismissRequest = { isModelDropdownExpanded = false }
+                                                ) {
+                                                    availableModels.forEach { model ->
+                                                        DropdownMenuItem(
+                                                            text = { Text(text = model) },
+                                                            onClick = {
+                                                                modelNameInput = model
+                                                                isModelDropdownExpanded = false
+                                                                AiConfigManager.saveCustomConfig(context, endpointUrl, apiKeyInput, modelNameInput)
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            OutlinedTextField(
+                                                value = modelNameInput,
+                                                onValueChange = { modelNameInput = it },
+                                                label = { Text("Model Name (e.g. gpt-4o-mini, claude-3-haiku, nvidia/llama-3.1)") },
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedContainerColor = colors.bgCanvas,
+                                                    unfocusedContainerColor = colors.bgCanvas
+                                                ),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("custom_model_name_input")
+                                            )
+                                        }
 
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                    }
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
                                         OutlinedTextField(
-                                            value = modelNameInput,
-                                            onValueChange = { modelNameInput = it },
-                                            label = { Text("Model Name (e.g. gpt-4o-mini, claude-3-haiku, nvidia/llama-3.1)") },
+                                            value = apiKeyInput,
+                                            onValueChange = { apiKeyInput = it },
+                                            label = { Text("API Key (leave empty for default Gemini Studio key)") },
+                                            visualTransformation = PasswordVisualTransformation(),
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                             colors = OutlinedTextFieldDefaults.colors(
                                                 focusedContainerColor = colors.bgCanvas,
                                                 unfocusedContainerColor = colors.bgCanvas
                                             ),
                                             modifier = Modifier
-                                                .fillMaxWidth()
-                                                .testTag("custom_model_name_input")
+                                                .weight(1f)
+                                                .testTag("custom_api_key_input")
                                         )
-
-                                        Spacer(modifier = Modifier.height(12.dp))
+                                        if (apiKeyInput.isNotBlank()) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Button(
+                                                onClick = {
+                                                    apiKeyInput = ""
+                                                    AiConfigManager.saveCustomConfig(context, endpointUrl, apiKeyInput, modelNameInput)
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = colors.debit),
+                                                shape = KhataTheme.shapes.sm,
+                                                modifier = Modifier.padding(top = 8.dp)
+                                            ) {
+                                                Text("Clear")
+                                            }
+                                        }
                                     }
-
-                                    OutlinedTextField(
-                                        value = apiKeyInput,
-                                        onValueChange = { apiKeyInput = it },
-                                        label = { Text("API Key (leave empty for default Gemini Studio key)") },
-                                        visualTransformation = PasswordVisualTransformation(),
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedContainerColor = colors.bgCanvas,
-                                            unfocusedContainerColor = colors.bgCanvas
-                                        ),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .testTag("custom_api_key_input")
-                                    )
 
                                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -679,17 +750,26 @@ fun AiAssistantScreen(
                                                         apiKey = apiKeyInput,
                                                         model = modelNameInput
                                                     )
-                                                    isValidating = false
+                                                    
                                                     res.fold(
                                                         onSuccess = { msg ->
                                                             isValidationSuccess = true
                                                             validationStatusMessage = msg
+                                                            
+                                                            // Also attempt to fetch models
+                                                            val modelRes = AiConfigManager.fetchAvailableModels(currentProvider, endpointUrl, apiKeyInput)
+                                                            modelRes.onSuccess { models ->
+                                                                if (models.isNotEmpty()) {
+                                                                    availableModels = models
+                                                                }
+                                                            }
                                                         },
                                                         onFailure = { err ->
                                                             isValidationSuccess = false
                                                             validationStatusMessage = err.localizedMessage
                                                         }
                                                     )
+                                                    isValidating = false
                                                 }
                                             },
                                             enabled = !isValidating,
@@ -706,11 +786,11 @@ fun AiAssistantScreen(
                                                     strokeWidth = 2.dp
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Testing...")
+                                                Text("Testing & Loading...")
                                             } else {
                                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Validate Connection")
+                                                Text("Validate & Load Models")
                                             }
                                         }
                                     }

@@ -14,7 +14,8 @@ import java.util.concurrent.TimeUnit
 
 enum class AiProvider(val displayName: String) {
     GEMINI("Built-in Gemini 3.5 Flash (Free)"),
-    OPENAI("OpenAI Compatible (ChatGPT, Nvidia, etc)"),
+    OPENAI("OpenAI Compatible (ChatGPT, etc)"),
+    NVIDIA_NIM("Nvidia NIM Compatible"),
     ANTHROPIC("Anthropic Compatible (Claude)")
 }
 
@@ -89,6 +90,68 @@ object AiConfigManager {
         }
     }
 
+    suspend fun fetchAvailableModels(
+        provider: AiProvider,
+        endpoint: String,
+        apiKey: String
+    ): Result<List<String>> = withContext(Dispatchers.IO) {
+        try {
+            when (provider) {
+                AiProvider.GEMINI -> {
+                    val keyToUse = if (apiKey.isNotBlank()) apiKey else getEffectiveGeminiKey()
+                    val url = "https://generativelanguage.googleapis.com/v1beta/models?key=$keyToUse"
+                    val request = Request.Builder().url(url).get().build()
+                    val response = httpClient.newCall(request).execute()
+                    if (response.isSuccessful) {
+                        val bodyString = response.body?.string() ?: ""
+                        val models = JSONObject(bodyString).optJSONArray("models")
+                        val list = mutableListOf<String>()
+                        if (models != null) {
+                            for (i in 0 until models.length()) {
+                                val modelName = models.getJSONObject(i).optString("name")
+                                // Gemini models are often prefixed with 'models/', trim it if so
+                                list.add(modelName.removePrefix("models/"))
+                            }
+                        }
+                        Result.success(list.filter { it.contains("gemini") })
+                    } else {
+                        Result.failure(Exception("Gemini HTTP Error ${response.code}"))
+                    }
+                }
+                AiProvider.OPENAI, AiProvider.NVIDIA_NIM -> {
+                    if (apiKey.isBlank()) return@withContext Result.failure(Exception("API Key cannot be empty"))
+                    val baseUrl = if (endpoint.isBlank()) "https://api.openai.com/v1" else endpoint.substringBefore("/chat/completions")
+                    val url = "$baseUrl/models"
+                    val request = Request.Builder()
+                        .url(url)
+                        .addHeader("Authorization", "Bearer $apiKey")
+                        .get()
+                        .build()
+                    val response = httpClient.newCall(request).execute()
+                    if (response.isSuccessful) {
+                        val bodyString = response.body?.string() ?: ""
+                        val dataArray = JSONObject(bodyString).optJSONArray("data")
+                        val list = mutableListOf<String>()
+                        if (dataArray != null) {
+                            for (i in 0 until dataArray.length()) {
+                                list.add(dataArray.getJSONObject(i).optString("id"))
+                            }
+                        }
+                        Result.success(list.sorted())
+                    } else {
+                        Result.failure(Exception("HTTP ${response.code}: ${response.body?.string()}"))
+                    }
+                }
+                AiProvider.ANTHROPIC -> {
+                    // Anthropic doesn't have a standard models endpoint in the same way, return hardcoded list
+                    Result.success(listOf("claude-3-5-sonnet-20240620", "claude-3-haiku-20240307", "claude-3-opus-20240229"))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun validateConnection(
         provider: AiProvider,
         endpoint: String,
@@ -117,7 +180,7 @@ object AiConfigManager {
                         Result.failure(Exception("Gemini HTTP Error ${response.code}: ${response.message}"))
                     }
                 }
-                AiProvider.OPENAI -> {
+                AiProvider.OPENAI, AiProvider.NVIDIA_NIM -> {
                     if (apiKey.isBlank()) return@withContext Result.failure(Exception("API Key cannot be empty"))
                     val url = if (endpoint.isBlank()) "https://api.openai.com/v1/chat/completions" else endpoint
                     val jsonBody = JSONObject().apply {
@@ -136,7 +199,7 @@ object AiConfigManager {
 
                     val response = httpClient.newCall(request).execute()
                     if (response.isSuccessful) {
-                        Result.success("OpenAI compatible endpoint connection successful!")
+                        Result.success("${provider.displayName} connection successful!")
                     } else {
                         Result.failure(Exception("HTTP ${response.code}: ${response.body?.string()}"))
                     }
