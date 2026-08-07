@@ -41,6 +41,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import com.example.ui.components.TypingIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -256,11 +257,7 @@ fun AiAssistantScreen(
                                             .testTag("run_financial_advisor_btn")
                                     ) {
                                         if (isAdvisorLoading) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                color = colors.bgCanvas,
-                                                strokeWidth = 2.dp
-                                            )
+                                            TypingIndicator(dotColor = colors.bgCanvas)
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text("Analyzing Ledger Data...")
                                         } else {
@@ -409,13 +406,9 @@ fun AiAssistantScreen(
                                             .testTag("generate_reminder_btn")
                                     ) {
                                         if (isReminderLoading) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                color = colors.bgCanvas,
-                                                strokeWidth = 2.dp
-                                            )
+                                            TypingIndicator(dotColor = colors.bgCanvas)
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Generating Message...")
+                                            Text("Drafting Message...")
                                         } else {
                                             Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
@@ -510,11 +503,7 @@ fun AiAssistantScreen(
                                             .testTag("run_audit_scan_btn")
                                     ) {
                                         if (isAuditLoading) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                color = colors.bgCanvas,
-                                                strokeWidth = 2.dp
-                                            )
+                                            TypingIndicator(dotColor = colors.bgCanvas)
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text("Scanning Database...")
                                         } else {
@@ -780,11 +769,7 @@ fun AiAssistantScreen(
                                                 .testTag("test_ai_connection_btn")
                                         ) {
                                             if (isValidating) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(18.dp),
-                                                    color = colors.bgCanvas,
-                                                    strokeWidth = 2.dp
-                                                )
+                                                TypingIndicator(dotColor = colors.bgCanvas)
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Text("Testing & Loading...")
                                             } else {
