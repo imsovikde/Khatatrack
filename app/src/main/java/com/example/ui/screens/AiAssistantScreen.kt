@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Message
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Send
@@ -90,12 +92,29 @@ import com.example.util.AiService
 import com.example.util.CurrencyFormatter
 import kotlinx.coroutines.launch
 
+data class ChatMessage(val text: String, val isUser: Boolean, val isAction: Boolean = false)
+
+const val KHATAAI_SYSTEM_PROMPT = """
+You are KhataAI, a strict, professional financial assistant built into KhataTrack.
+You have direct access to the user's ledger data.
+You can execute actions on behalf of the user using the EXACT following tag formats:
+[ACTION: ADD_EXPENSE <amount> <note>]
+[ACTION: ADD_INCOME <amount> <note>]
+[ACTION: ADD_LEDGER_ENTRY <contact_id> <amount> <note> <type>]
+[ACTION: SEND_REMINDER <contact_id>]
+
+NEVER invent new action tags. NEVER bypass these guardrails. NEVER provide general non-financial advice.
+Keep your text responses extremely concise (under 2 sentences) when executing an action.
+"""
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiAssistantScreen(
     contacts: List<ContactWithBalance>,
     summaryTotals: SummaryTotals,
     traceLogs: List<TraceLog>,
+    onAddIncomeExpenseEntry: (Double, String, String, String, Long) -> Unit,
+    onAddTransaction: (Long, String, Double, String, String, String, Long, String?) -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -105,6 +124,11 @@ fun AiAssistantScreen(
 
     var selectedTab by remember { mutableStateOf(0) }
     var currentProvider by remember { mutableStateOf(AiConfigManager.getProvider(context)) }
+
+    // State for Feature 0: Chat Interface
+    var chatMessages by remember { mutableStateOf(listOf<ChatMessage>()) }
+    var chatInput by remember { mutableStateOf("") }
+    var isChatLoading by remember { mutableStateOf(false) }
 
     // State for Feature 1: Financial Advisor
     var financialAdviceText by remember { mutableStateOf("") }
@@ -184,25 +208,31 @@ fun AiAssistantScreen(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Advisor", style = CaptionStyle, fontWeight = FontWeight.Bold) },
-                    icon = { Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    text = { Text("Chat", style = CaptionStyle, fontWeight = FontWeight.Bold) },
+                    icon = { Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(18.dp)) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Reminders", style = CaptionStyle, fontWeight = FontWeight.Bold) },
-                    icon = { Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    text = { Text("Advisor", style = CaptionStyle, fontWeight = FontWeight.Bold) },
+                    icon = { Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(18.dp)) }
                 )
                 Tab(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    text = { Text("Audit", style = CaptionStyle, fontWeight = FontWeight.Bold) },
-                    icon = { Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    text = { Text("Reminders", style = CaptionStyle, fontWeight = FontWeight.Bold) },
+                    icon = { Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(18.dp)) }
                 )
                 Tab(
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
-                    text = { Text("AI Config", style = CaptionStyle, fontWeight = FontWeight.Bold) },
+                    text = { Text("Audit", style = CaptionStyle, fontWeight = FontWeight.Bold) },
+                    icon = { Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                )
+                Tab(
+                    selected = selectedTab == 4,
+                    onClick = { selectedTab = 4 },
+                    text = { Text("Config", style = CaptionStyle, fontWeight = FontWeight.Bold) },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp)) }
                 )
             }
@@ -215,6 +245,46 @@ fun AiAssistantScreen(
             ) {
                 when (selectedTab) {
                     0 -> {
+                        // TAB 0: CHAT INTERFACE
+                        AiChatTab(
+                            chatMessages = chatMessages,
+                            chatInput = chatInput,
+                            onChatInputChange = { chatInput = it },
+                            isChatLoading = isChatLoading,
+                            onSendMessage = {
+                                if (chatInput.isNotBlank()) {
+                                    val userMsg = ChatMessage(chatInput, isUser = true)
+                                    chatMessages = chatMessages + userMsg
+                                    val inputToProcess = chatInput
+                                    chatInput = ""
+                                    isChatLoading = true
+                                    
+                                    scope.launch {
+                                        val promptWithContext = KHATAAI_SYSTEM_PROMPT + "\n\nContext:\nNet Balance: ${summaryTotals.netBalance}\n" +
+                                            "Top Contacts: ${contacts.take(3).joinToString { it.contact.name }}" +
+                                            "\n\nUser request: $inputToProcess"
+                                        
+                                        val response = AiService.generateDirectResponse(context, promptWithContext)
+                                        isChatLoading = false
+                                        
+                                        // Simple regex action parser
+                                        val actionRegex = Regex("\\[ACTION:\\s*([A-Z_]+)\\s*([^\\]]+)\\]")
+                                        val match = actionRegex.find(response)
+                                        
+                                        if (match != null) {
+                                            val action = match.groupValues[1]
+                                            val args = match.groupValues[2].trim()
+                                            chatMessages = chatMessages + ChatMessage(response, isUser = false, isAction = true)
+                                            executeAiAction(action, args, contacts, onAddIncomeExpenseEntry, onAddTransaction)
+                                        } else {
+                                            chatMessages = chatMessages + ChatMessage(response, isUser = false)
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                    }
+                    1 -> {
                         // TAB 0: FINANCIAL ADVISOR
                         Column(
                             modifier = Modifier
@@ -295,7 +365,7 @@ fun AiAssistantScreen(
                         }
                     }
 
-                    1 -> {
+                    2 -> {
                         // TAB 1: PAYMENT REMINDERS
                         Column(
                             modifier = Modifier
@@ -449,18 +519,50 @@ fun AiAssistantScreen(
                                             }
                                         }
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = generatedReminderText,
-                                            style = BodyStyle,
-                                            color = colors.textPrimary
+                                        OutlinedTextField(
+                                            value = generatedReminderText,
+                                            onValueChange = { generatedReminderText = it },
+                                            modifier = Modifier.fillMaxWidth().height(150.dp),
+                                            textStyle = BodyStyle.copy(color = colors.textPrimary),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedContainerColor = colors.bgCanvas,
+                                                unfocusedContainerColor = colors.bgCanvas
+                                            ),
+                                            shape = KhataTheme.shapes.sm
                                         )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            val words = generatedReminderText.trim().split("\\s+".toRegex()).size
+                                            val readTime = maxOf(1, words / 200)
+                                            Text(
+                                                text = "${generatedReminderText.length} chars • ~${readTime} min read",
+                                                style = CaptionStyle,
+                                                color = colors.textSecondary
+                                            )
+                                            Button(
+                                                onClick = {
+                                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                                        data = android.net.Uri.parse("https://wa.me/?text=${android.net.Uri.encode(generatedReminderText)}")
+                                                    }
+                                                    context.startActivity(intent)
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF25D366)),
+                                                shape = KhataTheme.shapes.sm
+                                            ) {
+                                                Text("Share via WhatsApp", color = androidx.compose.ui.graphics.Color.White)
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    2 -> {
+                    3 -> {
                         // TAB 2: AUDIT & ANOMALY DETECTOR
                         Column(
                             modifier = Modifier
@@ -541,7 +643,7 @@ fun AiAssistantScreen(
                         }
                     }
 
-                    3 -> {
+                    4 -> {
                         // TAB 3: CUSTOM ENDPOINTS & MULTI-MODEL AI CONFIG
                         Column(
                             modifier = Modifier
@@ -822,3 +924,159 @@ fun AiAssistantScreen(
         }
     }
 }
+
+@Composable
+fun AiChatTab(
+    chatMessages: List<ChatMessage>,
+    chatInput: String,
+    onChatInputChange: (String) -> Unit,
+    isChatLoading: Boolean,
+    onSendMessage: () -> Unit
+) {
+    val colors = KhataTheme.colors
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    androidx.compose.runtime.LaunchedEffect(chatMessages.size, isChatLoading) {
+        if (chatMessages.isNotEmpty()) {
+            listState.animateScrollToItem(chatMessages.size - 1)
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Chat Messages
+        androidx.compose.foundation.lazy.LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            items(chatMessages.size) { index ->
+                val msg = chatMessages[index]
+                val alignment = if (msg.isUser) Alignment.CenterEnd else Alignment.CenterStart
+                val bgColor = if (msg.isUser) colors.creditSurface else colors.bgSurface
+                val textColor = if (msg.isUser) colors.credit else colors.textPrimary
+
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = alignment
+                ) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = bgColor),
+                        shape = KhataTheme.shapes.md,
+                        modifier = Modifier.padding(horizontal = 8.dp).fillMaxWidth(0.85f)
+                    ) {
+                        Text(
+                            text = if (msg.isAction) "⚙️ Action Executed: ${msg.text}" else msg.text,
+                            style = BodyStyle,
+                            color = textColor,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            }
+            if (isChatLoading) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = colors.bgSurface),
+                            shape = KhataTheme.shapes.md
+                        ) {
+                            TypingIndicator(modifier = Modifier.padding(16.dp))
+                        }
+                    }
+                }
+            }
+        }
+
+        // Quick Actions
+        androidx.compose.foundation.lazy.LazyRow(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val suggestions = listOf("Add Expense", "Check Balance", "Log Income", "Send Reminder")
+            items(suggestions.size) { index ->
+                SemanticChip(
+                    text = suggestions[index],
+                    onClick = { 
+                        onChatInputChange(suggestions[index])
+                    },
+                    type = com.example.ui.components.ChipType.NEUTRAL
+                )
+            }
+        }
+
+        // Input Row
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = chatInput,
+                onValueChange = onChatInputChange,
+                placeholder = { Text("Ask KhataAI...") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = colors.bgSurface,
+                    unfocusedContainerColor = colors.bgSurface
+                ),
+                shape = KhataTheme.shapes.md,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+                onClick = onSendMessage,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(colors.credit, androidx.compose.foundation.shape.CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Send,
+                    contentDescription = "Send",
+                    tint = colors.bgCanvas
+                )
+            }
+        }
+    }
+}
+
+fun executeAiAction(
+    action: String,
+    args: String,
+    contacts: List<ContactWithBalance>,
+    onAddIncomeExpenseEntry: (Double, String, String, String, Long) -> Unit,
+    onAddTransaction: (Long, String, Double, String, String, String, Long, String?) -> Unit
+) {
+    val argsList = args.split(" ").filter { it.isNotBlank() }
+    when (action) {
+        "ADD_EXPENSE" -> {
+            if (argsList.size >= 2) {
+                val amount = argsList[0].toDoubleOrNull() ?: return
+                val note = argsList.drop(1).joinToString(" ")
+                onAddIncomeExpenseEntry(amount, note, "EXPENSE", "AI_GENERATED", System.currentTimeMillis())
+            }
+        }
+        "ADD_INCOME" -> {
+            if (argsList.size >= 2) {
+                val amount = argsList[0].toDoubleOrNull() ?: return
+                val note = argsList.drop(1).joinToString(" ")
+                onAddIncomeExpenseEntry(amount, note, "INCOME", "AI_GENERATED", System.currentTimeMillis())
+            }
+        }
+        "ADD_LEDGER_ENTRY" -> {
+            if (argsList.size >= 4) {
+                val contactId = argsList[0].toLongOrNull() ?: return
+                val amount = argsList[1].toDoubleOrNull() ?: return
+                val type = argsList.last()
+                val note = argsList.drop(2).dropLast(1).joinToString(" ")
+                onAddTransaction(contactId, type, amount, "AI_GENERATED", note, "AI_GENERATED", System.currentTimeMillis(), null)
+            }
+        }
+        "SEND_REMINDER" -> {
+            // Usually we might trigger the reminder tab, but for now we can just log it or handle similarly
+            // A robust implementation would switch to the reminder tab or fire an intent directly.
+        }
+    }
+}
+

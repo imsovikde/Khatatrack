@@ -248,6 +248,12 @@ class MainActivity : ComponentActivity() {
                                         contacts = homeContacts,
                                         summaryTotals = summaryTotals,
                                         traceLogs = emptyList(),
+                                        onAddIncomeExpenseEntry = { amount, note, type, categoryTag, timestamp ->
+                                            viewModel.addIncomeExpenseEntry(amount, note, type, categoryTag, timestamp)
+                                        },
+                                        onAddTransaction = { contactId, type, amount, paymentMode, note, categoryTag, dueDate, referenceNumber ->
+                                            viewModel.addTransactionForContact(contactId, type, amount, paymentMode, note, categoryTag, dueDate, referenceNumber)
+                                        },
                                         onBackClick = { viewModel.navigateTo(Screen.HOME) }
                                     )
                                 }
