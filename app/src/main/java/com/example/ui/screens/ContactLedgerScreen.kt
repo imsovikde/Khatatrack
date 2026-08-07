@@ -462,11 +462,13 @@ fun ContactLedgerScreen(
                     style = BodyStyle,
                     color = colors.textSecondary
                 )
-                Text(
-                    text = "Txn ID: #${tx.id}",
-                    style = CaptionStyle,
-                    color = colors.textSecondary
-                )
+                if (!tx.referenceNumber.isNullOrBlank() && tx.paymentMode != "Cash") {
+                    Text(
+                        text = "Ref: ${tx.referenceNumber}",
+                        style = CaptionStyle,
+                        color = colors.textSecondary
+                    )
+                }
                 Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
 
                 PrimaryButton(

@@ -140,6 +140,13 @@ fun TransactionRow(
                         style = CaptionStyle,
                         color = colors.textSecondary
                     )
+                    if (!transaction.referenceNumber.isNullOrBlank() && transaction.paymentMode != "Cash") {
+                        Text(
+                            text = " • Ref: ${transaction.referenceNumber}",
+                            style = CaptionStyle,
+                            color = colors.textSecondary
+                        )
+                    }
                     if (transaction.attachmentPhoto != null) {
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(

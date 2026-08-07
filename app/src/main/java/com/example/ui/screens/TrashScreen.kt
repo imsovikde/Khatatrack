@@ -204,7 +204,7 @@ fun TrashScreen(
                         items(trashTxs, key = { "t_${it.id}" }) { tx ->
                             DesaturatedTxTrashRow(
                                 tx = tx,
-                                onRestore = { viewModel.restoreTransaction(tx.id, "Tx #${tx.id}") },
+                                onRestore = { viewModel.restoreTransaction(tx.id, "Transaction") },
                                 onDeletePermanently = { itemToDeleteTx = tx }
                             )
                         }
@@ -242,11 +242,11 @@ fun TrashScreen(
         AlertDialog(
             onDismissRequest = { itemToDeleteTx = null },
             title = { Text("Delete Forever?") },
-            text = { Text("This will permanently remove transaction #${tx.id} (${CurrencyFormatter.formatRupee(tx.amount)}). This cannot be undone.") },
+            text = { Text("This will permanently remove this transaction (${CurrencyFormatter.formatRupee(tx.amount)}). This cannot be undone.") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.deleteTransactionPermanently(tx.id, "Tx #${tx.id}")
+                        viewModel.deleteTransactionPermanently(tx.id, "Transaction")
                         itemToDeleteTx = null
                     }
                 ) {
