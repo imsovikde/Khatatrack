@@ -34,7 +34,8 @@ data class Transaction(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val isDeleted: Boolean = false,
-    val deletedAt: Long? = null
+    val deletedAt: Long? = null,
+    val tags: String = "" // comma-separated tags extracted from note e.g. "grocery,family,upi"
 ) {
     companion object {
         const val TYPE_YOU_GAVE = "YOU_GAVE"

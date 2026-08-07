@@ -64,6 +64,7 @@ import com.example.util.CurrencyFormatter
 import com.example.util.CurrencyManager
 import com.example.util.IntelligentParser
 import com.example.util.SpeechRecognizerManager
+import com.example.util.TagExtractor
 import kotlinx.coroutines.launch
 import android.Manifest
 import android.os.Build
@@ -97,6 +98,7 @@ fun AddIncomeExpenseBottomSheet(
     var selectedPaymentMode by remember(editingEntry) { mutableStateOf(editingEntry?.paymentMode ?: "Cash") }
     var referenceNumber by remember(editingEntry) { mutableStateOf(editingEntry?.transactionRefId ?: "") }
     var note by remember(editingEntry) { mutableStateOf(editingEntry?.note ?: "") }
+    var tagsText by remember(editingEntry) { mutableStateOf(editingEntry?.tags ?: "") }
     var attachmentUri by remember(editingEntry) { mutableStateOf(editingEntry?.attachmentPhoto) }
     var hasReminder by remember(editingEntry) { mutableStateOf(editingEntry?.collectionDueDate != null) }
 
@@ -508,6 +510,17 @@ fun AddIncomeExpenseBottomSheet(
                 shape = RoundedCornerShape(12.dp)
             )
 
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
+
+            // Tags input: #hashtag or comma-separated
+            OutlinedTextField(
+                value = tagsText,
+                onValueChange = { tagsText = it },
+                label = { Text("Tags (e.g. #salary #monthly or salary, monthly)") },
+                modifier = Modifier.fillMaxWidth().testTag("tags_input"),
+                shape = RoundedCornerShape(12.dp)
+            )
+
             Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
             // Attachment & Reminder controls
@@ -571,7 +584,8 @@ fun AddIncomeExpenseBottomSheet(
                             categoryTag = selectedCategory,
                             note = note.ifBlank { null },
                             attachmentPhoto = attachmentUri,
-                            collectionDueDate = if (hasReminder) selectedTimestamp + (7 * 86400000L) else null
+                            collectionDueDate = if (hasReminder) selectedTimestamp + (7 * 86400000L) else null,
+                            tags = TagExtractor.tagsToString(TagExtractor.extractTags(tagsText))
                         )
                         onSave(entry)
                         onDismiss()

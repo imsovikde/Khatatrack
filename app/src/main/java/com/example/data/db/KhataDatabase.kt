@@ -29,7 +29,7 @@ import com.example.data.model.Transaction
         PaymentModeItem::class,
         IncomeExpenseEntry::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class KhataDatabase : RoomDatabase() {

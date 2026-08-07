@@ -21,7 +21,8 @@ data class IncomeExpenseEntry(
     val isDeleted: Boolean = false,
     val deletedAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val tags: String = "" // comma-separated tags e.g. "salary,monthly,hdfc"
 ) {
     companion object {
         const val TYPE_INCOME = "INCOME"

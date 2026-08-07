@@ -75,6 +75,7 @@ import com.example.ui.theme.LabelStyle
 import com.example.ui.theme.TitleStyle
 import com.example.util.CurrencyFormatter
 import com.example.util.DateTimeUtils
+import com.example.util.TagExtractor
 import java.util.Calendar
 
 import androidx.compose.material.icons.filled.Mic
@@ -147,6 +148,7 @@ fun AddTransactionBottomSheet(
     var selectedPaymentMode by remember { mutableStateOf(editingTransaction?.paymentMode ?: "Cash") }
     var noteText by remember { mutableStateOf(editingTransaction?.note ?: "") }
     var referenceNumberText by remember { mutableStateOf(editingTransaction?.referenceNumber ?: "") }
+    var tagsText by remember { mutableStateOf(editingTransaction?.tags ?: "") }
 
     val calendar = remember { Calendar.getInstance() }
     var selectedDateMillis by remember { mutableStateOf(editingTransaction?.transactionDate ?: calendar.timeInMillis) }
@@ -693,6 +695,28 @@ fun AddTransactionBottomSheet(
             }
 
             HorizontalDivider(color = colors.divider, thickness = 1.dp)
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
+
+            // Tags input (# or comma-separated)
+            BasicTextField(
+                value = tagsText,
+                onValueChange = { tagsText = it },
+                textStyle = BodyStyle.copy(color = colors.textPrimary),
+                cursorBrush = SolidColor(colors.textPrimary),
+                modifier = Modifier.fillMaxWidth().testTag("tags_input"),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (tagsText.isEmpty()) {
+                            Text(
+                                text = "Tags: #grocery #family or grocery, family",
+                                style = BodyStyle.copy(color = colors.textDisabled)
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
 
