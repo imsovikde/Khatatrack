@@ -203,14 +203,41 @@ object BackupUtils {
         return root.toString(2)
     }
 
-    fun exportBackupFile(context: Context, jsonContent: String) {
+    fun exportBackupFile(context: Context, jsonContent: String, contacts: List<Contact>, transactions: List<Transaction>) {
         try {
-            val fileName = "KhataTrack_Backup_${DateTimeUtils.formatDate(System.currentTimeMillis()).replace(" ", "_")}.ktb.json"
+            val fileName = "KhataTrack_Backup_${DateTimeUtils.formatDate(System.currentTimeMillis()).replace(" ", "_")}.ktb.zip"
             val file = File(context.cacheDir, fileName)
-            val writer = FileWriter(file)
-            writer.write(jsonContent)
-            writer.flush()
-            writer.close()
+            
+            val fos = java.io.FileOutputStream(file)
+            val zos = java.util.zip.ZipOutputStream(fos)
+            
+            // 1. JSON Payload
+            zos.putNextEntry(java.util.zip.ZipEntry("backup.json"))
+            zos.write(jsonContent.toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+            
+            // 2. Attachments
+            val mediaUris = mutableSetOf<String>()
+            contacts.forEach { it.profilePhoto?.let { p -> mediaUris.add(p) } }
+            transactions.forEach { it.attachmentPhoto?.let { p -> mediaUris.add(p) } }
+            
+            for (uriStr in mediaUris) {
+                try {
+                    val uri = Uri.parse(uriStr)
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    if (inputStream != null) {
+                        val hashName = sha256(uriStr)
+                        zos.putNextEntry(java.util.zip.ZipEntry("attachments/$hashName"))
+                        inputStream.copyTo(zos)
+                        zos.closeEntry()
+                        inputStream.close()
+                    }
+                } catch (e: Exception) {
+                    // Ignore missing files
+                }
+            }
+            zos.close()
+            fos.close()
 
             val uri = try {
                 FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -219,7 +246,7 @@ object BackupUtils {
             }
 
             val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/json"
+                type = "application/zip"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_SUBJECT, "KhataTrack Backup")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -234,10 +261,40 @@ object BackupUtils {
         try {
             val inputStream = context.contentResolver.openInputStream(uri)
                 ?: return Pair(null, "Unable to read selected file.")
-            val reader = BufferedReader(InputStreamReader(inputStream))
-            val jsonString = reader.readText()
-            reader.close()
-            inputStream.close()
+            
+            val zis = java.util.zip.ZipInputStream(inputStream)
+            var jsonString = ""
+            val extractedFiles = mutableMapOf<String, File>()
+            
+            try {
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    if (entry.name == "backup.json") {
+                        jsonString = String(zis.readBytes(), Charsets.UTF_8)
+                    } else if (entry.name.startsWith("attachments/") && !entry.isDirectory) {
+                        val tempFile = File(context.cacheDir, entry.name.substringAfterLast("/"))
+                        val fos = java.io.FileOutputStream(tempFile)
+                        zis.copyTo(fos)
+                        fos.close()
+                        extractedFiles[tempFile.name] = tempFile
+                    }
+                    zis.closeEntry()
+                    entry = zis.nextEntry
+                }
+            } catch (e: Exception) {
+                // Not a zip or corrupted
+            }
+            zis.close()
+            
+            if (jsonString.isEmpty()) {
+                // Fallback to legacy JSON format
+                val rawStream = context.contentResolver.openInputStream(uri) ?: return Pair(null, "Unable to read.")
+                val reader = BufferedReader(InputStreamReader(rawStream))
+                jsonString = reader.readText()
+                reader.close()
+                rawStream.close()
+            }
+
 
             val rootObj = JSONObject(jsonString)
             val appSig = rootObj.optString("app")
@@ -259,18 +316,27 @@ object BackupUtils {
             val payloadObj = JSONObject(payloadJsonString)
             val exportedAt = rootObj.optLong("exportedAt", System.currentTimeMillis())
 
-            // Parse Contacts
             val contacts = mutableListOf<Contact>()
             val cArr = payloadObj.optJSONArray("contacts") ?: JSONArray()
             for (i in 0 until cArr.length()) {
                 val o = cArr.getJSONObject(i)
+                var pPhoto = o.optString("profilePhoto").ifEmpty { null }
+                if (pPhoto != null) {
+                    val hash = sha256(pPhoto)
+                    if (extractedFiles.containsKey(hash)) {
+                        val permFile = File(context.filesDir, "attachments/$hash")
+                        permFile.parentFile?.mkdirs()
+                        extractedFiles[hash]?.copyTo(permFile, overwrite = true)
+                        pPhoto = Uri.fromFile(permFile).toString()
+                    }
+                }
                 contacts.add(
                     Contact(
                         id = o.optLong("id", 0L),
                         name = o.optString("name"),
                         mobileNumber = o.optString("mobileNumber").ifEmpty { null },
                         email = o.optString("email").ifEmpty { null },
-                        profilePhoto = o.optString("profilePhoto").ifEmpty { null },
+                        profilePhoto = pPhoto,
                         addressNotes = o.optString("addressNotes").ifEmpty { null },
                         categoryTag = o.optString("categoryTag", "Friend"),
                         createdAt = o.optLong("createdAt"),
@@ -283,11 +349,20 @@ object BackupUtils {
                 )
             }
 
-            // Parse Transactions
             val transactions = mutableListOf<Transaction>()
             val tArr = payloadObj.optJSONArray("transactions") ?: JSONArray()
             for (i in 0 until tArr.length()) {
                 val o = tArr.getJSONObject(i)
+                var aPhoto = o.optString("attachmentPhoto").ifEmpty { null }
+                if (aPhoto != null) {
+                    val hash = sha256(aPhoto)
+                    if (extractedFiles.containsKey(hash)) {
+                        val permFile = File(context.filesDir, "attachments/$hash")
+                        permFile.parentFile?.mkdirs()
+                        extractedFiles[hash]?.copyTo(permFile, overwrite = true)
+                        aPhoto = Uri.fromFile(permFile).toString()
+                    }
+                }
                 transactions.add(
                     Transaction(
                         id = o.optLong("id", 0L),
@@ -298,7 +373,7 @@ object BackupUtils {
                         transactionTime = o.optString("transactionTime"),
                         paymentMode = o.optString("paymentMode", "Cash"),
                         note = o.optString("note").ifEmpty { null },
-                        attachmentPhoto = o.optString("attachmentPhoto").ifEmpty { null },
+                        attachmentPhoto = aPhoto,
                         referenceNumber = o.optString("referenceNumber").ifEmpty { null },
                         collectionDueDate = if (o.has("collectionDueDate") && o.getLong("collectionDueDate") != 0L) o.getLong("collectionDueDate") else null,
                         createdAt = o.optLong("createdAt"),

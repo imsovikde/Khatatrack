@@ -156,7 +156,7 @@ fun BackupDataScreen(
                                 encrypt = isEncryptionEnabled
                             )
 
-                            BackupUtils.exportBackupFile(context, jsonString)
+                            BackupUtils.exportBackupFile(context, jsonString, contacts, txs)
                         }
                     },
                 shape = RoundedCornerShape(12.dp),
