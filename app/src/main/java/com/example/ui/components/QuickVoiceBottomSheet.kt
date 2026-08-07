@@ -1,6 +1,10 @@
 package com.example.ui.components
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -61,6 +65,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.data.model.Contact
 import com.example.data.model.Transaction
 import com.example.ui.theme.BodyStyle
@@ -106,6 +111,21 @@ fun QuickVoiceBottomSheet(
     val context = LocalContext.current
     val colors = KhataTheme.colors
     val coroutineScope = rememberCoroutineScope()
+
+    // Runtime permission for microphone
+    var hasMicPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var micPermissionDenied by remember { mutableStateOf(false) }
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasMicPermission = granted
+        micPermissionDenied = !granted
+    }
 
     val speechManager = remember { SpeechRecognizerManager(context) }
     var isListening by remember { mutableStateOf(false) }
@@ -165,8 +185,11 @@ fun QuickVoiceBottomSheet(
         }
     }
 
-    // Auto-start speech recognition on sheet opening
-    LaunchedEffect(Unit) {
+    fun startMicListening() {
+        if (!hasMicPermission) {
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
         isListening = true
         speechManager.startListening(
             onResult = { recognizedText ->
@@ -179,6 +202,15 @@ fun QuickVoiceBottomSheet(
                 parserSourceText = err
             }
         )
+    }
+
+    // Auto-start speech recognition on sheet opening (only if permission is already granted)
+    LaunchedEffect(Unit) {
+        if (hasMicPermission) {
+            startMicListening()
+        } else {
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
     }
 
     DisposableEffect(Unit) {
@@ -247,6 +279,17 @@ fun QuickVoiceBottomSheet(
                         .padding(KhataTheme.spacing.md),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Show permission denied message if user rejected mic access
+                    if (micPermissionDenied) {
+                        Text(
+                            text = "Microphone permission denied. Grant it in Settings to use voice entry, or type your transaction below.",
+                            style = CaptionStyle,
+                            color = colors.debit,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+
                     Box(
                         modifier = Modifier
                             .size(56.dp)
@@ -257,18 +300,7 @@ fun QuickVoiceBottomSheet(
                                     isListening = false
                                     speechManager.stopListening()
                                 } else {
-                                    isListening = true
-                                    speechManager.startListening(
-                                        onResult = { text ->
-                                            isListening = false
-                                            rawInputText = text
-                                            triggerParsing(text)
-                                        },
-                                        onError = { err ->
-                                            isListening = false
-                                            parserSourceText = err
-                                        }
-                                    )
+                                    startMicListening()
                                 }
                             },
                         contentAlignment = Alignment.Center
@@ -284,7 +316,9 @@ fun QuickVoiceBottomSheet(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = if (isListening) "Listening... Speak now!" else "Tap microphone to speak or edit text below",
+                        text = if (micPermissionDenied) "Mic access denied — type your transaction below"
+                               else if (isListening) "Listening... Speak now!"
+                               else "Tap microphone to speak or edit text below",
                         style = LabelStyle,
                         color = if (isListening) colors.textPrimary else colors.textSecondary,
                         textAlign = TextAlign.Center
