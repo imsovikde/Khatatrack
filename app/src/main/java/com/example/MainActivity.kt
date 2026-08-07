@@ -287,11 +287,18 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 Screen.SEARCH -> {
+                                    val ieSearchResults by viewModel.incomeExpenseSearchResults.collectAsStateWithLifecycle()
+                                    val allContacts by viewModel.allContacts.collectAsStateWithLifecycle()
+                                    val contactsMap = remember(allContacts) {
+                                        allContacts.associate { it.id to it.name }
+                                    }
                                     SearchScreen(
                                         query = uiState.searchQuery,
                                         onQueryChange = { viewModel.setSearchQuery(it) },
                                         searchResults = searchResults,
                                         transactionSearchResults = viewModel.transactionSearchResults.collectAsStateWithLifecycle().value,
+                                        incomeExpenseResults = ieSearchResults,
+                                        contactsMap = contactsMap,
                                         onBackClick = { viewModel.navigateTo(Screen.HOME) },
                                         onContactClick = { contactId -> viewModel.openContactDetail(contactId) }
                                     )

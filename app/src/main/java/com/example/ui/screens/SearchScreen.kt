@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ContactWithBalance
+import com.example.data.model.IncomeExpenseEntry
 import com.example.ui.components.ContactCard
 import com.example.ui.components.EmptyState
 import com.example.ui.theme.BodyStyle
@@ -56,6 +57,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.clickable
+import com.example.util.CurrencyFormatter
+import com.example.util.DateTimeUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +67,8 @@ fun SearchScreen(
     onQueryChange: (String) -> Unit,
     searchResults: List<ContactWithBalance>,
     transactionSearchResults: List<Transaction>,
+    incomeExpenseResults: List<IncomeExpenseEntry> = emptyList(),
+    contactsMap: Map<Long, String> = emptyMap(), // contactId -> contact name for sub-caption
     onBackClick: () -> Unit,
     onContactClick: (Long) -> Unit,
     modifier: Modifier = Modifier
@@ -188,7 +193,7 @@ fun SearchScreen(
                         icon = Icons.Default.Search
                     )
                 }
-            } else if (searchResults.isEmpty() && transactionSearchResults.isEmpty()) {
+            } else if (searchResults.isEmpty() && transactionSearchResults.isEmpty() && incomeExpenseResults.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -238,14 +243,80 @@ fun SearchScreen(
                             )
                         }
                         items(transactionSearchResults, key = { "tx_${it.id}" }) { item ->
-                            TransactionRow(
-                                transaction = item,
-                                highlightQuery = query,
-                                onClick = { 
-                                    SearchHistoryManager.addSearchQuery(context, query)
-                                    item.contactId?.let { onContactClick(it) }
+                            Column(
+                                modifier = Modifier
+                                    .clickable {
+                                        SearchHistoryManager.addSearchQuery(context, query)
+                                        item.contactId?.let { onContactClick(it) }
+                                    }
+                            ) {
+                                TransactionRow(
+                                    transaction = item,
+                                    highlightQuery = query,
+                                    onClick = {
+                                        SearchHistoryManager.addSearchQuery(context, query)
+                                        item.contactId?.let { onContactClick(it) }
+                                    }
+                                )
+                                // Show contact name sub-caption for context
+                                val contactName = item.contactId?.let { contactsMap[it] }
+                                if (!contactName.isNullOrBlank()) {
+                                    Text(
+                                        text = "↳ ${contactName}",
+                                        style = CaptionStyle,
+                                        color = colors.textSecondary,
+                                        modifier = Modifier.padding(start = KhataTheme.spacing.md, bottom = 4.dp)
+                                    )
                                 }
-                            )
+                            }
+                        }
+
+                        // Income & Expense section
+                        if (incomeExpenseResults.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "INCOME & EXPENSE (${incomeExpenseResults.size})",
+                                    style = CaptionStyle,
+                                    color = colors.textSecondary,
+                                    modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = KhataTheme.spacing.sm)
+                                )
+                            }
+                            items(incomeExpenseResults, key = { "ie_${it.id}" }) { item ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
+                                ) {
+                                    val typeLabel = if (item.type == IncomeExpenseEntry.TYPE_INCOME) "Income" else "Expense"
+                                    val typeColor = if (item.type == IncomeExpenseEntry.TYPE_INCOME) colors.credit else colors.debit
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = typeLabel,
+                                            style = BodyStyle.copy(fontWeight = FontWeight.SemiBold),
+                                            color = typeColor
+                                        )
+                                        Text(
+                                            text = "  ${CurrencyFormatter.formatRupee(item.amount)}",
+                                            style = BodyStyle,
+                                            color = colors.textPrimary
+                                        )
+                                    }
+                                    val noteText = item.note ?: item.categoryTag
+                                    if (noteText.isNotBlank()) {
+                                        Text(
+                                            text = noteText,
+                                            style = CaptionStyle,
+                                            color = colors.textSecondary
+                                        )
+                                    }
+                                    Text(
+                                        text = "${item.paymentMode} · ${DateTimeUtils.formatDate(item.transactionDate)}",
+                                        style = CaptionStyle,
+                                        color = colors.textSecondary
+                                    )
+                                    HorizontalDivider(color = colors.divider, thickness = 0.5.dp, modifier = Modifier.padding(top = 6.dp))
+                                }
+                            }
                         }
                     }
                 }

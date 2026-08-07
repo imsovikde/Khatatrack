@@ -145,6 +145,15 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = emptyList()
     )
 
+    // All contacts (raw, unfiltered) for building lookup maps
+    val allContacts: StateFlow<List<Contact>> = repository.contactsWithBalances.map { list ->
+        list.map { it.contact }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     // Quick Entries
     val quickEntries: StateFlow<List<Transaction>> = repository.allTransactions.map { list ->
         list.filter { it.contactId == null }.sortedByDescending { it.transactionDate }
@@ -236,7 +245,7 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = emptyList()
     )
 
-    // Global search transactions matching query
+    // Global search transactions matching query (note, category, reference, paymentMode)
     val transactionSearchResults: StateFlow<List<Transaction>> = combine(
         repository.allTransactions,
         _uiState
@@ -248,7 +257,30 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
             list.filter { item ->
                 (item.note ?: "").lowercase().contains(q) ||
                 item.categoryTag.lowercase().contains(q) ||
-                (item.referenceNumber ?: "").lowercase().contains(q)
+                (item.referenceNumber ?: "").lowercase().contains(q) ||
+                item.paymentMode.lowercase().contains(q)
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    // Global search Income & Expense entries matching query
+    val incomeExpenseSearchResults: StateFlow<List<IncomeExpenseEntry>> = combine(
+        repository.allIncomeExpenseEntries,
+        _uiState
+    ) { list, state ->
+        val q = state.searchQuery.trim().lowercase()
+        if (q.isEmpty()) {
+            emptyList()
+        } else {
+            list.filter { item ->
+                (item.note ?: "").lowercase().contains(q) ||
+                item.categoryTag.lowercase().contains(q) ||
+                item.paymentMode.lowercase().contains(q) ||
+                item.type.lowercase().contains(q)
             }
         }
     }.stateIn(
