@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.SouthWest
 import androidx.compose.material3.HorizontalDivider
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +51,7 @@ fun TransactionRow(
     runningBalance: Double? = null,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
+    onPhotoClick: ((String) -> Unit)? = null,
     highlightQuery: String? = null,
     modifier: Modifier = Modifier
 ) {
@@ -186,6 +189,26 @@ fun TransactionRow(
                         color = colors.textSecondary
                     )
                 }
+            }
+        }
+
+        if (transaction.attachmentPhoto != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 68.dp, end = 16.dp, bottom = 12.dp)
+                    .height(140.dp)
+                    .clip(KhataTheme.shapes.sm)
+                    .background(colors.divider)
+            ) {
+                AsyncImage(
+                    model = transaction.attachmentPhoto,
+                    contentDescription = "Attachment",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable { onPhotoClick?.invoke(transaction.attachmentPhoto) }
+                )
             }
         }
 

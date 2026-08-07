@@ -100,6 +100,7 @@ fun ContactLedgerScreen(
 
     var showOverflowMenu by remember { mutableStateOf(false) }
     var selectedTxForOptions by remember { mutableStateOf<Transaction?>(null) }
+    var previewPhotoUri by remember { mutableStateOf<String?>(null) }
     val optionsSheetState = rememberModalBottomSheetState()
 
     var showPdfPreview by remember { mutableStateOf(false) }
@@ -385,7 +386,7 @@ fun ContactLedgerScreen(
                     val map = mutableMapOf<Long, Double>()
                     var acc = 0.0
                     for (tx in transactions) {
-                        if (tx.type == Transaction.TYPE_YOU_GOT) {
+                        if (tx.type == Transaction.TYPE_YOU_GAVE) {
                             acc += tx.amount
                         } else {
                             acc -= tx.amount
@@ -427,6 +428,9 @@ fun ContactLedgerScreen(
                                 },
                                 onLongClick = {
                                     selectedTxForOptions = tx
+                                },
+                                onPhotoClick = { uri ->
+                                    previewPhotoUri = uri
                                 }
                             )
                         }
@@ -495,6 +499,13 @@ fun ContactLedgerScreen(
                 )
             }
         }
+    }
+
+    if (previewPhotoUri != null) {
+        com.example.ui.components.ImagePreviewDialog(
+            photoUri = previewPhotoUri!!,
+            onDismiss = { previewPhotoUri = null }
+        )
     }
 
     if (showPdfPreview) {
