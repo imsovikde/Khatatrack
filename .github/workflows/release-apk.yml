@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - '**'
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
@@ -35,11 +38,7 @@ jobs:
             cp .env.example .env
           fi
 
-      - name: 🔑 Ensure Debug Keystore Exists
-        run: |
-          if [ ! -f debug.keystore ]; then
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          fi
+
 
       - name: 🛠️ Compile Real Android APK from Codebase
         run: gradle assembleDebug --no-daemon
@@ -47,48 +46,57 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
           VERSION_NAME: 1.0.${{ github.run_number }}
 
-      - name: 🔍 Verify & Package Real APK Binary (>1MB Validation)
+      - name: 🔍 Verify & Package Real APK Binaries (>1MB Validation)
         run: |
           RAW_BRANCH="${GITHUB_REF_NAME}"
           BRANCH_SLUG=$(echo "${RAW_BRANCH}" | sed 's/[^a-zA-Z0-9._-]/--/g')
           
-          ORIGINAL_APK="app/build/outputs/apk/debug/app-debug.apk"
+          mkdir -p release_apks
+          found_apks=0
           
-          if [ ! -f "$ORIGINAL_APK" ]; then
-            echo "❌ ERROR: $ORIGINAL_APK does not exist! Compilation failed."
+          for apk in app/build/outputs/apk/debug/*.apk; do
+            if [ -f "$apk" ]; then
+              FILE_SIZE=$(wc -c < "$apk")
+              if [ "$FILE_SIZE" -lt 1000000 ]; then
+                echo "❌ ERROR: Compiled APK file size (${FILE_SIZE} bytes) for $apk is less than 1MB. Not a real APK binary!"
+                exit 1
+              fi
+              
+              apk_basename=$(basename "$apk")
+              variant=$(echo "$apk_basename" | sed -E 's/^app-(.*)-debug\.apk$/\1/' | sed -E 's/^app-debug\.apk$/universal/')
+              
+              RAW_MSG=$(git log -1 --pretty=format:"%s")
+              CLEAN_TITLE=$(echo "${RAW_MSG}" | sed -E 's/^(feat|fix|perf|docs|chore|ci|refactor)(\([^)]+\))?: //i')
+
+              if [ "${RAW_BRANCH}" = "main" ]; then
+                VERSION_TAG="v1.0.${{ github.run_number }}"
+                RELEASE_TITLE="KhataTrack ${VERSION_TAG} — ${CLEAN_TITLE} 🚀"
+                APK_NAME="KhataTrack-${{ github.actor }}-main-${VERSION_TAG}-${variant}.apk"
+              else
+                VERSION_TAG="${BRANCH_SLUG}-v1.0.${{ github.run_number }}"
+                RELEASE_TITLE="KhataTrack [${RAW_BRANCH}] ${VERSION_TAG} — ${CLEAN_TITLE} 🧪"
+                APK_NAME="KhataTrack-${{ github.actor }}-${BRANCH_SLUG}-${VERSION_TAG}-${variant}.apk"
+              fi
+
+              cp "$apk" "release_apks/${APK_NAME}"
+              found_apks=$((found_apks+1))
+              
+              if [[ "$variant" == "universal" || $found_apks -eq 1 ]]; then
+                echo "APK_SIZE_BYTES=${FILE_SIZE}" >> $GITHUB_ENV
+              fi
+            fi
+          done
+          
+          if [ $found_apks -eq 0 ]; then
+            echo "❌ ERROR: No APKs found! Compilation failed."
             exit 1
           fi
 
-          FILE_SIZE=$(wc -c < "$ORIGINAL_APK")
-          echo "Compiling complete... Output APK size: ${FILE_SIZE} bytes."
-
-          if [ "$FILE_SIZE" -lt 1000000 ]; then
-            echo "❌ ERROR: Compiled APK file size (${FILE_SIZE} bytes) is less than 1MB. Not a real APK binary!"
-            exit 1
-          fi
-
-          RAW_MSG=$(git log -1 --pretty=format:"%s")
-          CLEAN_TITLE=$(echo "${RAW_MSG}" | sed -E 's/^(feat|fix|perf|docs|chore|ci|refactor)(\([^)]+\))?: //i')
-
-          if [ "${RAW_BRANCH}" = "main" ]; then
-            VERSION_TAG="v1.0.${{ github.run_number }}"
-            RELEASE_TITLE="KhataTrack ${VERSION_TAG} — ${CLEAN_TITLE} 🚀"
-            APK_NAME="KhataTrack-${{ github.actor }}-main-${VERSION_TAG}.apk"
-          else
-            VERSION_TAG="${BRANCH_SLUG}-v1.0.${{ github.run_number }}"
-            RELEASE_TITLE="KhataTrack [${RAW_BRANCH}] ${VERSION_TAG} — ${CLEAN_TITLE} 🧪"
-            APK_NAME="KhataTrack-${{ github.actor }}-${BRANCH_SLUG}-${VERSION_TAG}.apk"
-          fi
-
-          cp "$ORIGINAL_APK" "${APK_NAME}"
-          
           echo "RAW_BRANCH=${RAW_BRANCH}" >> $GITHUB_ENV
           echo "BRANCH_SLUG=${BRANCH_SLUG}" >> $GITHUB_ENV
           echo "RELEASE_TAG=${VERSION_TAG}" >> $GITHUB_ENV
           echo "RELEASE_TITLE=${RELEASE_TITLE}" >> $GITHUB_ENV
           echo "CLEAN_TITLE=${CLEAN_TITLE}" >> $GITHUB_ENV
-          echo "APK_FILE=${APK_NAME}" >> $GITHUB_ENV
-          echo "APK_SIZE_BYTES=${FILE_SIZE}" >> $GITHUB_ENV
 
       - name: 🤖 Intelligent Release Notes Engine
         run: |
@@ -119,8 +127,11 @@ jobs:
           cat <<EOF > release_notes.md
           # 💸 KhataTrack Release ${RELEASE_TAG} — ${CLEAN_TITLE} 🚀
 
-          ### 📱 Direct APK Asset Download
-          👉 **[Download ${APK_FILE}](https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${APK_FILE})**
+          ### 📱 Direct APK Asset Downloads
+          👉 **[Download All APK Variants](https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG})**
+          - Universal APK (for all devices)
+          - arm64-v8a (64-bit ARM)
+          - armeabi-v7a (32-bit ARM)
 
           ---
 
@@ -136,8 +147,8 @@ jobs:
           - **Version Name**: \`1.0.${{ github.run_number }}\`
           - **Version Code**: \`${{ github.run_number }}\`
           - **Target Branch**: \`${RAW_BRANCH}\`
-          - **APK Asset Binary**: \`${APK_FILE}\`
-          - **Verified Binary Size**: \`${APK_SIZE_BYTES}\` bytes (~$(expr ${APK_SIZE_BYTES} / 1048576) MB)
+          - **APK Assets**: Multi-Architecture Splits
+          - **Universal APK Size**: \`${APK_SIZE_BYTES}\` bytes (~$(expr ${APK_SIZE_BYTES} / 1048576) MB)
           - **Committer**: **${COMMITTER_NAME}** ([@${{ github.actor }}](https://github.com/${{ github.actor }}))
           - **Latest Commit**: \`${COMMIT_HASH}\` — **${COMMIT_SUBJECT}**
           - **Build Timestamp**: ${BUILD_DATE}
@@ -176,7 +187,7 @@ jobs:
 
       - name: 🚀 Publish Real Release with APK Asset via GH CLI
         run: |
-          gh release create "${RELEASE_TAG}" "${APK_FILE}" \
+          gh release create "${RELEASE_TAG}" release_apks/*.apk \
             --title "${RELEASE_TITLE}" \
             --notes-file release_notes.md \
             --target "${RAW_BRANCH}"
