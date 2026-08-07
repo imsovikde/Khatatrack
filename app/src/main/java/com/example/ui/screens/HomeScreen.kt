@@ -32,12 +32,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -86,6 +86,7 @@ fun HomeScreen(
     onContactClick: (Long) -> Unit,
     onAddContactClick: () -> Unit,
     onQuickVoiceClick: () -> Unit = {},
+    onQuickLedgerEntryClick: () -> Unit = {},
     onSearchClick: () -> Unit,
     onNavigateToIncomeExpense: (() -> Unit)? = null,
     onTogglePin: ((Long, Boolean, String) -> Unit)? = null,
@@ -139,34 +140,20 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            FloatingActionButton(
+                onClick = onAddContactClick,
+                shape = KhataTheme.shapes.lg,
+                containerColor = colors.textPrimary,
+                contentColor = if (colors.isDark) colors.bgCanvas else colors.bgSurface,
+                modifier = Modifier
+                    .size(56.dp)
+                    .testTag("add_contact_fab")
             ) {
-                ExtendedFloatingActionButton(
-                    onClick = onQuickVoiceClick,
-                    shape = KhataTheme.shapes.lg,
-                    containerColor = colors.bgSurfaceElevated,
-                    contentColor = colors.textPrimary,
-                    icon = { Icon(imageVector = Icons.Default.Mic, contentDescription = "Voice Entry") },
-                    text = { Text("Voice Entry", style = LabelStyle.copy(fontWeight = FontWeight.Bold)) },
-                    modifier = Modifier.testTag("voice_entry_fab")
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add Contact",
+                    modifier = Modifier.size(28.dp)
                 )
-                FloatingActionButton(
-                    onClick = onAddContactClick,
-                    shape = KhataTheme.shapes.lg,
-                    containerColor = colors.textPrimary,
-                    contentColor = if (colors.isDark) colors.bgCanvas else colors.bgSurface,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .testTag("add_contact_fab")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add Contact",
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
             }
         },
         containerColor = colors.bgCanvas,
@@ -302,6 +289,33 @@ fun HomeScreen(
             }
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.xs))
+
+            // QUICK ENTRY ROW
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = KhataTheme.spacing.md, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onQuickLedgerEntryClick,
+                    shape = KhataTheme.shapes.md,
+                    modifier = Modifier.weight(1f).testTag("quick_ledger_entry_button")
+                ) {
+                    Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("New Ledger Entry", style = LabelStyle.copy(fontWeight = FontWeight.SemiBold))
+                }
+                OutlinedButton(
+                    onClick = onQuickVoiceClick,
+                    shape = KhataTheme.shapes.md,
+                    modifier = Modifier.weight(1f).testTag("quick_voice_entry_button")
+                ) {
+                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Voice Entry", style = LabelStyle.copy(fontWeight = FontWeight.SemiBold))
+                }
+            }
 
             // FRICTIONLESS VOICE ENTRY BANNER
             Card(

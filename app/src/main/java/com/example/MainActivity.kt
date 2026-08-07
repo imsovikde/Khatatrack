@@ -217,6 +217,11 @@ class MainActivity : ComponentActivity() {
                                         onContactClick = { contactId -> viewModel.openContactDetail(contactId) },
                                         onAddContactClick = { viewModel.openAddContact() },
                                         onQuickVoiceClick = { isQuickVoiceSheetOpen = true },
+                                        onQuickLedgerEntryClick = {
+                                            editingTransactionForSheet = null
+                                            transactionSheetInitialType = Transaction.TYPE_YOU_GAVE
+                                            isAddTransactionSheetOpen = true
+                                        },
                                         onSearchClick = { viewModel.navigateTo(Screen.SEARCH) },
                                         onNavigateToIncomeExpense = { viewModel.navigateTo(Screen.INCOME_EXPENSE) },
                                         onTogglePin = { contactId, isPinned, name -> viewModel.togglePinContact(contactId, isPinned, name) },
