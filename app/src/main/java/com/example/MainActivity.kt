@@ -2,6 +2,7 @@ package com.example
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -118,6 +119,36 @@ class MainActivity : ComponentActivity() {
                         Screen.REPORTS,
                         Screen.SETTINGS
                     )
+
+                    // Intercept system back to navigate within the custom back-stack.
+                    // BackHandler is only enabled when NOT on HOME to allow the OS to
+                    // handle back naturally (i.e. close the app) from the root screen.
+                    BackHandler(enabled = currentScreen != Screen.HOME) {
+                        when (currentScreen) {
+                            Screen.CONTACT_DETAIL -> viewModel.navigateTo(Screen.HOME)
+                            Screen.ADD_EDIT_CONTACT -> {
+                                if (uiState.activeContactId != null) {
+                                    viewModel.navigateTo(Screen.CONTACT_DETAIL)
+                                } else {
+                                    viewModel.navigateTo(Screen.HOME)
+                                }
+                            }
+                            Screen.SEARCH -> viewModel.navigateTo(Screen.HOME)
+                            Screen.TRASH -> viewModel.navigateTo(Screen.SETTINGS)
+                            Screen.TRACE_LOG -> {
+                                if (uiState.traceTargetEntityId != null) {
+                                    viewModel.navigateTo(Screen.CONTACT_DETAIL)
+                                } else {
+                                    viewModel.navigateTo(Screen.SETTINGS)
+                                }
+                            }
+                            Screen.CATEGORY_PAYMENT_MODE -> viewModel.navigateTo(Screen.SETTINGS)
+                            Screen.BACKUP_DATA -> viewModel.navigateTo(Screen.SETTINGS)
+                            Screen.INCOME_EXPENSE -> viewModel.navigateTo(Screen.HOME)
+                            Screen.AI_HUB -> viewModel.navigateTo(Screen.HOME)
+                            else -> viewModel.navigateTo(Screen.HOME)
+                        }
+                    }
 
                     Scaffold(
                         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
