@@ -346,6 +346,7 @@ class MainActivity : ComponentActivity() {
                                         onOpenTraceLog = { viewModel.openFullTraceLog() },
                                         onOpenCategoryManagement = { viewModel.navigateTo(Screen.CATEGORY_PAYMENT_MODE) },
                                         onOpenBackupData = { viewModel.navigateTo(Screen.BACKUP_DATA) },
+                                        onOpenAiHub = { viewModel.navigateTo(Screen.AI_HUB) },
                                         onTestNotification = {
                                             com.example.util.NotificationHelper.showNotification(
                                                 context = context,

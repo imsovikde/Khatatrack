@@ -72,6 +72,7 @@ fun SettingsScreen(
     onOpenTraceLog: () -> Unit,
     onOpenCategoryManagement: () -> Unit,
     onOpenBackupData: () -> Unit,
+    onOpenAiHub: (() -> Unit)? = null,
     onTestNotification: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -442,6 +443,33 @@ fun SettingsScreen(
                         uncheckedTrackColor = colors.divider
                     ),
                     modifier = Modifier.testTag("use_ai_parsing_switch")
+                )
+            }
+
+            HorizontalDivider(color = colors.divider, thickness = 1.dp)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(colors.bgSurface)
+                    .clickable { onOpenAiHub?.invoke() }
+                    .padding(horizontal = KhataTheme.spacing.md, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "AI Hub",
+                        tint = colors.textSecondary
+                    )
+                    Spacer(modifier = Modifier.padding(horizontal = 8.dp))
+                    Text(text = "KhataTrack AI Hub", style = BodyStyle, color = colors.textPrimary)
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                    contentDescription = null,
+                    tint = colors.textDisabled
                 )
             }
 
