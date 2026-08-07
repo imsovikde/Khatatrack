@@ -127,7 +127,9 @@ fun QuickVoiceBottomSheet(
         micPermissionDenied = !granted
     }
 
-    val speechManager = remember { SpeechRecognizerManager(context) }
+    val speechManager = remember(hasMicPermission) { 
+        if (hasMicPermission) SpeechRecognizerManager(context) else null 
+    }
     var isListening by remember { mutableStateOf(false) }
     var rawInputText by remember { mutableStateOf("") }
     var parserSourceText by remember { mutableStateOf<String?>(null) }
@@ -191,7 +193,7 @@ fun QuickVoiceBottomSheet(
             return
         }
         isListening = true
-        speechManager.startListening(
+        speechManager?.startListening(
             onResult = { recognizedText ->
                 isListening = false
                 rawInputText = recognizedText
@@ -215,7 +217,7 @@ fun QuickVoiceBottomSheet(
 
     DisposableEffect(Unit) {
         onDispose {
-            speechManager.stopListening()
+            speechManager?.stopListening()
         }
     }
 

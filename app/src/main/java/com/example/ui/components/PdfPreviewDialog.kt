@@ -97,11 +97,17 @@ fun PdfPreviewDialog(
                         }
 
                         // Table Body
-                        LazyColumn(modifier = Modifier.weight(1f)) {
+                        val sortedTxs = transactions.sortedBy { it.transactionDate }
+                        val txWithBalances = remember(sortedTxs) {
                             var runningBal = 0.0
-                            val sortedTxs = transactions.sortedBy { it.transactionDate }
-                            items(sortedTxs) { tx ->
+                            sortedTxs.map { tx ->
                                 if (tx.type == Transaction.TYPE_YOU_GAVE) runningBal += tx.amount else runningBal -= tx.amount
+                                tx to runningBal
+                            }
+                        }
+                        
+                        LazyColumn(modifier = Modifier.weight(1f)) {
+                            items(txWithBalances) { (tx, bal) ->
                                 val debitStr = if (tx.type == Transaction.TYPE_YOU_GAVE) CurrencyFormatter.formatRupee(tx.amount) else ""
                                 val creditStr = if (tx.type == Transaction.TYPE_YOU_GOT) CurrencyFormatter.formatRupee(tx.amount) else ""
                                 
@@ -114,7 +120,7 @@ fun PdfPreviewDialog(
                                     Text(tx.paymentMode + if (!tx.note.isNullOrEmpty()) " (${tx.note})" else "", modifier = Modifier.weight(2f), fontSize = 9.sp, color = Color.DarkGray, maxLines = 1)
                                     Text(debitStr, modifier = Modifier.weight(1f), fontSize = 9.sp, color = Color(0xFFB71C1C))
                                     Text(creditStr, modifier = Modifier.weight(1f), fontSize = 9.sp, color = Color(0xFF1B5E20))
-                                    Text(CurrencyFormatter.formatRupee(Math.abs(runningBal)), modifier = Modifier.weight(1f), fontSize = 9.sp, color = if(runningBal>=0) Color(0xFF1B5E20) else Color(0xFFB71C1C))
+                                    Text(CurrencyFormatter.formatRupee(Math.abs(bal)), modifier = Modifier.weight(1f), fontSize = 9.sp, color = if(bal>=0) Color(0xFF1B5E20) else Color(0xFFB71C1C))
                                 }
                                 HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
                             }
