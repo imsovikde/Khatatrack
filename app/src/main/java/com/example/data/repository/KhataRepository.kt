@@ -59,7 +59,7 @@ class KhataRepository(
             var net = 0.0
             var latestTime = contact.createdAt
             for (tx in contactTxs) {
-                if (tx.type == Transaction.TYPE_YOU_GOT) {
+                if (tx.type == Transaction.TYPE_YOU_GAVE) {
                     net += tx.amount
                 } else {
                     net -= tx.amount

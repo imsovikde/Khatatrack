@@ -22,7 +22,7 @@ interface ContactDao {
     @Query("SELECT * FROM contacts WHERE id = :id")
     suspend fun getContactByIdSync(id: Long): Contact?
 
-    @Query("SELECT SUM(CASE WHEN type = 'YOU_GOT' THEN amount ELSE -amount END) FROM transactions WHERE contactId = :contactId AND isDeleted = 0")
+    @Query("SELECT SUM(CASE WHEN type = 'YOU_GAVE' THEN amount ELSE -amount END) FROM transactions WHERE contactId = :contactId AND isDeleted = 0")
     suspend fun getContactNetBalanceSync(contactId: Long): Double?
 
     @Query("SELECT * FROM contacts")

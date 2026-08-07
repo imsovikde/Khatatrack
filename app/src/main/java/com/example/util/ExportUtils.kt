@@ -33,14 +33,14 @@ object ExportUtils {
             val sortedTxs = transactions.sortedBy { it.transactionDate }
 
             for (tx in sortedTxs) {
-                if (tx.type == Transaction.TYPE_YOU_GOT) {
+                if (tx.type == Transaction.TYPE_YOU_GAVE) {
                     runningBalance += tx.amount
                 } else {
                     runningBalance -= tx.amount
                 }
 
                 val dateStr = DateTimeUtils.formatDate(tx.transactionDate)
-                val typeStr = if (tx.type == Transaction.TYPE_YOU_GOT) "YOU GOT (Credit)" else "YOU GAVE (Debit)"
+                val typeStr = if (tx.type == Transaction.TYPE_YOU_GOT) "YOU GOT (Debit)" else "YOU GAVE (Credit)"
                 val noteClean = (tx.note ?: "").replace(",", ";")
                 val refClean = (tx.referenceNumber ?: "").replace(",", ";")
                 val hasImage = if (tx.attachmentPhoto != null) "Yes" else "No"
@@ -165,7 +165,7 @@ object ExportUtils {
             for (t in sortedTxs) {
                 if (t.type == Transaction.TYPE_YOU_GOT) totalGot += t.amount else totalGave += t.amount
             }
-            val netBalance = totalGot - totalGave
+            val netBalance = totalGave - totalGot
 
             y += 25f
             // Table Header Box
@@ -195,7 +195,7 @@ object ExportUtils {
                 }
                 y += 20f
 
-                if (tx.type == Transaction.TYPE_YOU_GOT) {
+                if (tx.type == Transaction.TYPE_YOU_GAVE) {
                     runningBalance += tx.amount
                 } else {
                     runningBalance -= tx.amount
