@@ -73,6 +73,6 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE transactionDate >= :startDate AND transactionDate <= :endDate AND isDeleted = 0 ORDER BY transactionDate DESC")
     fun getTransactionsInRange(startDate: Long, endDate: Long): Flow<List<Transaction>>
 
-    @Query("SELECT categoryTag, SUM(amount) AS totalAmount, COUNT(*) AS count FROM transactions WHERE isDeleted = 0 AND transactionDate >= :startDate AND transactionDate <= :endDate GROUP BY categoryTag ORDER BY totalAmount DESC")
+    @Query("SELECT categoryTag, SUM(CASE WHEN type = 'YOU_GAVE' THEN amount ELSE -amount END) AS totalAmount, COUNT(*) AS count FROM transactions WHERE isDeleted = 0 AND transactionDate >= :startDate AND transactionDate <= :endDate GROUP BY categoryTag ORDER BY totalAmount DESC")
     fun getCategoryAggregates(startDate: Long, endDate: Long): Flow<List<CategoryAggregate>>
 }

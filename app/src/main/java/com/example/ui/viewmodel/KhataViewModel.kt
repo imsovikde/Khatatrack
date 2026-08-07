@@ -20,6 +20,9 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CoroutineExceptionHandler
+import android.util.Log
 import kotlinx.coroutines.launch
 
 import com.example.data.model.IncomeExpenseEntry
@@ -88,22 +91,29 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+    private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
+        Log.e("KhataViewModel", "Database mutation error", exception)
+        showSnackbar("Error: ${exception.localizedMessage}")
+    }
+
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             repository.seedSampleDataIfEmpty()
-            val retentionDays = com.example.util.TrashRetentionManager.getRetentionDays(application)
-            repository.purgeOldTrash(retentionDays)
-            com.example.util.TrashRetentionManager.scheduleDailyCleanupWork(application)
-        }
-        // Restore persisted preferences from DataStore
-        viewModelScope.launch {
-            AppPreferencesManager.isDarkMode(application).collect { persisted ->
-                _uiState.value = _uiState.value.copy(isDarkMode = persisted)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val retentionDays = com.example.util.TrashRetentionManager.getRetentionDays(application)
+                repository.purgeOldTrash(retentionDays)
+                com.example.util.TrashRetentionManager.scheduleDailyCleanupWork(application)
             }
         }
-        viewModelScope.launch {
+        // Restore persisted preferences from DataStore
+        viewModelScope.launch(exceptionHandler) {
+            AppPreferencesManager.isDarkMode(application).collect { persisted ->
+                _uiState.update { it.copy(isDarkMode = persisted) }
+            }
+        }
+        viewModelScope.launch(exceptionHandler) {
             AppPreferencesManager.isAppLockEnabled(application).collect { persisted ->
-                _uiState.value = _uiState.value.copy(isAppLockEnabled = persisted)
+                _uiState.update { it.copy(isAppLockEnabled = persisted) }
             }
         }
     }
@@ -114,7 +124,7 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setTrashRetentionDays(days: Int) {
         com.example.util.TrashRetentionManager.setRetentionDays(getApplication(), days)
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             repository.purgeOldTrash(days)
         }
         showSnackbar("Trash retention window updated to $days days")
@@ -211,7 +221,7 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
     val activeContactNetBalance: StateFlow<Double> = activeContactTransactions.map { list ->
         var net = 0.0
         for (tx in list) {
-            if (tx.type == Transaction.TYPE_YOU_GOT) {
+            if (tx.type == Transaction.TYPE_YOU_GAVE) {
                 net += tx.amount
             } else {
                 net -= tx.amount
@@ -298,74 +308,74 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         )
 
     fun navigateTo(screen: Screen) {
-        _uiState.value = _uiState.value.copy(currentScreen = screen)
+        _uiState.update { it.copy(currentScreen = screen) }
     }
 
     fun openContactDetail(contactId: Long) {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             activeContactId = contactId,
             currentScreen = Screen.CONTACT_DETAIL
-        )
+        ) }
     }
 
     fun openAddContact() {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             contactForEdit = null,
             currentScreen = Screen.ADD_EDIT_CONTACT
-        )
+        ) }
     }
 
     fun openEditContact(contact: Contact) {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             contactForEdit = contact,
             currentScreen = Screen.ADD_EDIT_CONTACT
-        )
+        ) }
     }
 
     fun openSingleTraceLog(entityType: String, entityId: Long) {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             traceTargetEntityType = entityType,
             traceTargetEntityId = entityId,
             currentScreen = Screen.TRACE_LOG
-        )
+        ) }
     }
 
     fun openFullTraceLog() {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             traceTargetEntityType = null,
             traceTargetEntityId = null,
             currentScreen = Screen.TRACE_LOG
-        )
+        ) }
     }
 
     fun setFilter(filter: FilterOption) {
-        _uiState.value = _uiState.value.copy(homeFilter = filter)
+        _uiState.update { it.copy(homeFilter = filter) }
     }
 
     fun setSearchQuery(query: String) {
-        _uiState.value = _uiState.value.copy(searchQuery = query)
+        _uiState.update { it.copy(searchQuery = query) }
     }
 
     fun setReportRange(range: ReportDateRange) {
-        _uiState.value = _uiState.value.copy(reportRange = range)
+        _uiState.update { it.copy(reportRange = range) }
     }
 
     fun toggleDarkMode(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(isDarkMode = enabled)
-        viewModelScope.launch {
+        _uiState.update { it.copy(isDarkMode = enabled) }
+        viewModelScope.launch(exceptionHandler) {
             AppPreferencesManager.setDarkMode(getApplication(), enabled)
         }
     }
 
     fun toggleAppLock(enabled: Boolean) {
-        _uiState.value = _uiState.value.copy(isAppLockEnabled = enabled)
-        viewModelScope.launch {
+        _uiState.update { it.copy(isAppLockEnabled = enabled) }
+        viewModelScope.launch(exceptionHandler) {
             AppPreferencesManager.setAppLockEnabled(getApplication(), enabled)
         }
     }
 
     fun unlockApp() {
-        _uiState.value = _uiState.value.copy(isAppLocked = false)
+        _uiState.update { it.copy(isAppLocked = false) }
     }
 
     fun saveContact(
@@ -375,7 +385,7 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         categoryTag: String,
         notes: String?
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             val editContact = _uiState.value.contactForEdit
             if (editContact != null) {
                 val updated = editContact.copy(
@@ -387,10 +397,10 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
                     updatedAt = System.currentTimeMillis()
                 )
                 repository.updateContact(updated, editContact)
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { it.copy(
                     activeContactId = updated.id,
                     currentScreen = Screen.CONTACT_DETAIL
-                )
+                ) }
             } else {
                 val newContact = Contact(
                     name = name,
@@ -400,16 +410,16 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
                     addressNotes = notes
                 )
                 val newId = repository.addContact(newContact)
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { it.copy(
                     activeContactId = newId,
                     currentScreen = Screen.CONTACT_DETAIL
-                )
+                ) }
             }
         }
     }
 
     fun togglePinContact(contactId: Long, currentIsPinned: Boolean, name: String = "Contact") {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             val newPinnedState = !currentIsPinned
             repository.setContactPinned(contactId, newPinnedState, name)
             val msg = if (newPinnedState) "'$name' pinned to top" else "'$name' unpinned"
@@ -418,27 +428,27 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun softDeleteContact(contactId: Long, name: String = "Contact") {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             val contact = repository.getContactByIdSync(contactId)
             repository.softDeleteContact(contactId, name)
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 lastDeletedContact = contact,
                 activeContactId = null,
                 currentScreen = Screen.HOME,
                 snackbarMessage = "'$name' moved to Trash"
-            )
+            ) }
         }
     }
 
     fun restoreContact(contactId: Long, name: String = "Contact") {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             repository.restoreContact(contactId, name)
             showSnackbar("Restored '$name' from Trash")
         }
     }
 
     fun deleteContactPermanently(contactId: Long, name: String = "Contact") {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             repository.deleteContactPermanently(contactId, name)
             showSnackbar("Permanently deleted '$name'")
         }
@@ -455,7 +465,7 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         attachmentPhotoUri: String? = null,
         contactIdOverride: Long? = _uiState.value.activeContactId
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             try {
                 val cName = if (contactIdOverride != null) {
                     repository.getContactByIdSync(contactIdOverride)?.name ?: ""
@@ -508,7 +518,7 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         dueDate: Long?,
         referenceNumber: String?
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             val contact = repository.getContactByIdSync(contactId)
             val cName = contact?.name ?: ""
             val tx = Transaction(
@@ -536,7 +546,7 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         dueDate: Long?,
         referenceNumber: String?
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             val newContact = Contact(
                 name = contactName,
                 categoryTag = "General"
@@ -558,24 +568,24 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun softDeleteTransaction(transaction: Transaction) {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             repository.softDeleteTransaction(transaction.id, "Tx #${transaction.id}")
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 lastDeletedTransaction = transaction,
                 snackbarMessage = "Transaction moved to Trash"
-            )
+            ) }
         }
     }
 
     fun restoreTransaction(id: Long, desc: String = "") {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             repository.restoreTransaction(id, desc)
             showSnackbar("Transaction restored from Trash")
         }
     }
 
     fun deleteTransactionPermanently(id: Long, desc: String = "") {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             repository.deleteTransactionPermanently(id, desc)
             showSnackbar("Transaction deleted permanently")
         }
@@ -583,28 +593,28 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
 
     fun undoDeleteTransaction() {
         val lastTx = _uiState.value.lastDeletedTransaction ?: return
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             repository.restoreTransaction(lastTx.id)
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 lastDeletedTransaction = null,
                 snackbarMessage = "Transaction restored"
-            )
+            ) }
         }
     }
 
     fun undoDeleteContact() {
         val lastC = _uiState.value.lastDeletedContact ?: return
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             repository.restoreContact(lastC.id, lastC.name)
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 lastDeletedContact = null,
                 snackbarMessage = "Contact restored"
-            )
+            ) }
         }
     }
 
     fun addIncomeExpenseEntry(entry: IncomeExpenseEntry) {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             try {
                 repository.insertIncomeExpenseEntry(entry)
                 showSnackbar("Entry saved successfully")
@@ -615,7 +625,7 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateIncomeExpenseEntry(entry: IncomeExpenseEntry) {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             try {
                 repository.updateIncomeExpenseEntry(entry)
                 showSnackbar("Entry updated successfully")
@@ -626,7 +636,7 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteIncomeExpenseEntry(id: Long) {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             try {
                 repository.softDeleteIncomeExpenseEntry(id)
                 showSnackbar("Entry moved to Trash")
@@ -637,10 +647,10 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun showSnackbar(msg: String) {
-        _uiState.value = _uiState.value.copy(snackbarMessage = msg)
+        _uiState.update { it.copy(snackbarMessage = msg) }
     }
 
     fun dismissSnackbar() {
-        _uiState.value = _uiState.value.copy(snackbarMessage = null)
+        _uiState.update { it.copy(snackbarMessage = null) }
     }
 }
