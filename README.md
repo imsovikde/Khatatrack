@@ -4,7 +4,7 @@
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin%202.0-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![CI Build Status](https://github.com/imsovikde/Khatatrack/actions/workflows/ci.yml/badge.svg)](https://github.com/imsovikde/Khatatrack/actions/workflows/ci.yml)
 [![Auto Release Status](https://github.com/imsovikde/Khatatrack/actions/workflows/release-apk.yml/badge.svg)](https://github.com/imsovikde/Khatatrack/actions/workflows/release-apk.yml)
-[![Latest Release](https://img.shields.io/badge/Latest%20Release-v1.0.37-brightgreen?style=for-the-badge&logo=android&logoColor=white)](https://github.com/imsovikde/Khatatrack/releases/latest)
+[![Latest Release](https://img.shields.io/badge/Latest%20Release-v1.0.38-brightgreen?style=for-the-badge&logo=android&logoColor=white)](https://github.com/imsovikde/Khatatrack/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
 **KhataTrack** is a brand-minimalist, high-performance personal ledger Android application created by **[Souvik Dey](https://github.com/imsovikde)**. It empowers users to seamlessly manage financial transactions, track money given and received, schedule automated background debt reminders, and analyze personal financial health with smart AI enhancements.
@@ -13,7 +13,7 @@
 
 ## ⚡ Quick Navigation
 
-[🚀 Download Latest APK (v1.0.37)](https://github.com/imsovikde/Khatatrack/releases/latest) · [✨ Features](#-key-capabilities) · [🛠️ Quick Start](#%EF%B8%8F-quick-start) · [🏗️ Architecture](docs/architecture.md) · [📦 All Releases Archive](https://github.com/imsovikde/Khatatrack/releases) · [🤝 Contributing](CONTRIBUTING.md) · [🛡️ Security](SECURITY.md)
+[🚀 Download Latest APK (v1.0.38)](https://github.com/imsovikde/Khatatrack/releases/latest) · [✨ Features](#-key-capabilities) · [🛠️ Quick Start](#%EF%B8%8F-quick-start) · [🏗️ Architecture](docs/architecture.md) · [📦 All Releases Archive](https://github.com/imsovikde/Khatatrack/releases) · [🤝 Contributing](CONTRIBUTING.md) · [🛡️ Security](SECURITY.md)
 
 ---
 
