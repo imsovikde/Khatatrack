@@ -61,6 +61,6 @@ interface ContactDao {
     @Query("DELETE FROM contacts")
     suspend fun clearAllContacts()
 
-    @Query("SELECT * FROM contacts WHERE isDeleted = 0 AND isArchived = 0 AND (name LIKE '%' || :query || '%' OR mobileNumber LIKE '%' || :query || '%' OR addressNotes LIKE '%' || '%')")
+    @Query("SELECT * FROM contacts WHERE isDeleted = 0 AND isArchived = 0 AND (name LIKE '%' || :query || '%' OR mobileNumber LIKE '%' || :query || '%' OR addressNotes LIKE '%' || :query || '%')")
     fun searchContacts(query: String): Flow<List<Contact>>
 }
