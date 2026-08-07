@@ -101,7 +101,7 @@ fun PdfPreviewDialog(
                             var runningBal = 0.0
                             val sortedTxs = transactions.sortedBy { it.transactionDate }
                             items(sortedTxs) { tx ->
-                                if (tx.type == Transaction.TYPE_YOU_GOT) runningBal += tx.amount else runningBal -= tx.amount
+                                if (tx.type == Transaction.TYPE_YOU_GAVE) runningBal += tx.amount else runningBal -= tx.amount
                                 val debitStr = if (tx.type == Transaction.TYPE_YOU_GAVE) CurrencyFormatter.formatRupee(tx.amount) else ""
                                 val creditStr = if (tx.type == Transaction.TYPE_YOU_GOT) CurrencyFormatter.formatRupee(tx.amount) else ""
                                 
@@ -123,7 +123,7 @@ fun PdfPreviewDialog(
                         // Summary
                         var tg = 0.0; var tc = 0.0
                         transactions.forEach { if (it.type == Transaction.TYPE_YOU_GOT) tc+=it.amount else tg+=it.amount }
-                        val net = tc - tg
+                        val net = tg - tc
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
