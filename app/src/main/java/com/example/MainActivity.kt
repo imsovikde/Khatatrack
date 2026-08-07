@@ -1,11 +1,16 @@
 package com.example
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -72,6 +77,22 @@ class MainActivity : ComponentActivity() {
             val pendingReminders by viewModel.pendingReminders.collectAsStateWithLifecycle()
 
             val snackbarHostState = remember { SnackbarHostState() }
+
+            // ── Global Mic Permission (requested once at app launch) ──────────────
+            var hasMicPermission by remember {
+                mutableStateOf(
+                    ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO)
+                        == PackageManager.PERMISSION_GRANTED
+                )
+            }
+            val micPermissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission()
+            ) { granted -> hasMicPermission = granted }
+            LaunchedEffect(Unit) {
+                if (!hasMicPermission) {
+                    micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            }
 
             // Add/Edit Transaction bottom sheet state
             var isAddTransactionSheetOpen by remember { mutableStateOf(false) }
