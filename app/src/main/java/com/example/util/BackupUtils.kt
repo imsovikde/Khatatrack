@@ -486,6 +486,33 @@ object BackupUtils {
                 )
             }
 
+            // Parse Income/Expense Entries
+            val incomeExpenseEntries = mutableListOf<com.example.data.model.IncomeExpenseEntry>()
+            val ieArr = payloadObj.optJSONArray("incomeExpenseEntries") ?: JSONArray()
+            for (i in 0 until ieArr.length()) {
+                val o = ieArr.getJSONObject(i)
+                incomeExpenseEntries.add(
+                    com.example.data.model.IncomeExpenseEntry(
+                        id = o.optLong("id", 0L),
+                        type = o.optString("type"),
+                        amount = o.optDouble("amount"),
+                        currency = o.optString("currency", "INR"),
+                        transactionDate = o.optLong("transactionDate"),
+                        transactionTime = o.optString("transactionTime", ""),
+                        paymentMode = o.optString("paymentMode", "Cash"),
+                        transactionRefId = o.optString("transactionRefId").ifEmpty { null },
+                        categoryTag = o.optString("categoryTag", "General"),
+                        note = o.optString("note").ifEmpty { null },
+                        attachmentPhoto = o.optString("attachmentPhoto").ifEmpty { null },
+                        collectionDueDate = if (o.has("collectionDueDate") && o.getLong("collectionDueDate") != 0L) o.getLong("collectionDueDate") else null,
+                        createdAt = o.optLong("createdAt"),
+                        updatedAt = o.optLong("updatedAt"),
+                        isDeleted = o.optBoolean("isDeleted", false),
+                        deletedAt = if (o.has("deletedAt") && o.getLong("deletedAt") != 0L) o.getLong("deletedAt") else null
+                    )
+                )
+            }
+
             val summary = BackupSummary(
                 contactCount = contacts.size,
                 transactionCount = transactions.size,
@@ -497,7 +524,9 @@ object BackupUtils {
                 categories = categories,
                 paymentModes = paymentModes,
                 traceLogs = traceLogs,
-                reminders = reminders
+                reminders = reminders,
+                incomeExpenseCount = incomeExpenseEntries.size,
+                incomeExpenseEntries = incomeExpenseEntries
             )
 
             return Pair(summary, null)

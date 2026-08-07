@@ -549,6 +549,7 @@ fun BackupDataScreen(
                                 transactions = summary.transactions,
                                 categories = summary.categories,
                                 paymentModes = summary.paymentModes,
+                                incomeExpenseEntries = summary.incomeExpenseEntries,
                                 traceLogs = summary.traceLogs,
                                 reminders = summary.reminders,
                                 replaceExisting = true

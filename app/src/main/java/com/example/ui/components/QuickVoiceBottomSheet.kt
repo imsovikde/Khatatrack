@@ -300,7 +300,7 @@ fun QuickVoiceBottomSheet(
                             .clickable {
                                 if (isListening) {
                                     isListening = false
-                                    speechManager.stopListening()
+                                    speechManager?.stopListening()
                                 } else {
                                     startMicListening()
                                 }

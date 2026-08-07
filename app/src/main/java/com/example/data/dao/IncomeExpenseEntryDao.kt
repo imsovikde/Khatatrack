@@ -36,4 +36,7 @@ interface IncomeExpenseEntryDao {
 
     @Query("DELETE FROM income_expense_entries WHERE isDeleted = 1 AND deletedAt < :cutoff")
     suspend fun purgeOldTrash(cutoff: Long)
+
+    @Query("DELETE FROM income_expense_entries")
+    suspend fun hardDeleteAll()
 }
