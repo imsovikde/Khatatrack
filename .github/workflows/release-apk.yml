@@ -73,11 +73,11 @@ jobs:
           if [ "${RAW_BRANCH}" = "main" ]; then
             VERSION_TAG="v1.0.${{ github.run_number }}"
             RELEASE_TITLE="KhataTrack ${VERSION_TAG} — ${CLEAN_TITLE} 🚀"
-            APK_NAME="KhataTrack-SouvikDey-main-${VERSION_TAG}.apk"
+            APK_NAME="KhataTrack-${{ github.actor }}-main-${VERSION_TAG}.apk"
           else
             VERSION_TAG="${BRANCH_SLUG}-v1.0.${{ github.run_number }}"
             RELEASE_TITLE="KhataTrack [${RAW_BRANCH}] ${VERSION_TAG} — ${CLEAN_TITLE} 🧪"
-            APK_NAME="KhataTrack-SouvikDey-${BRANCH_SLUG}-${VERSION_TAG}.apk"
+            APK_NAME="KhataTrack-${{ github.actor }}-${BRANCH_SLUG}-${VERSION_TAG}.apk"
           fi
 
           cp "$ORIGINAL_APK" "${APK_NAME}"
@@ -95,6 +95,7 @@ jobs:
           COMMIT_HASH=$(git rev-parse --short HEAD)
           COMMIT_SUBJECT=$(git log -1 --pretty=format:"%s")
           COMMIT_BODY=$(git log -1 --pretty=format:"%b")
+          COMMITTER_NAME=$(git log -1 --pretty=format:"%an")
           BUILD_DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
 
           PREV_BRANCH_TAG=$(git describe --tags --match="${BRANCH_SLUG}*" --abbrev=0 2>/dev/null || echo "")
@@ -137,7 +138,7 @@ jobs:
           - **Target Branch**: \`${RAW_BRANCH}\`
           - **APK Asset Binary**: \`${APK_FILE}\`
           - **Verified Binary Size**: \`${APK_SIZE_BYTES}\` bytes (~$(expr ${APK_SIZE_BYTES} / 1048576) MB)
-          - **Maintainer**: **Souvik Dey** ([@imsovikde](https://github.com/imsovikde))
+          - **Committer**: **${COMMITTER_NAME}** ([@${{ github.actor }}](https://github.com/${{ github.actor }}))
           - **Latest Commit**: \`${COMMIT_HASH}\` — **${COMMIT_SUBJECT}**
           - **Build Timestamp**: ${BUILD_DATE}
           - **Compatibility**: Android 7.0+ (API 24 to 36)
