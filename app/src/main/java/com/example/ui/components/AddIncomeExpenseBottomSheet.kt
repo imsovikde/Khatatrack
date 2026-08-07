@@ -59,11 +59,18 @@ import com.example.ui.theme.BodyStyle
 import com.example.ui.theme.CaptionStyle
 import com.example.ui.theme.KhataTheme
 import com.example.ui.theme.TitleStyle
+import com.example.util.CategoryTagExtractor
 import com.example.util.CurrencyFormatter
 import com.example.util.CurrencyManager
 import com.example.util.IntelligentParser
 import com.example.util.SpeechRecognizerManager
 import kotlinx.coroutines.launch
+import android.Manifest
+import android.os.Build
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -109,8 +116,27 @@ fun AddIncomeExpenseBottomSheet(
 
     val speechManager = remember { SpeechRecognizerManager(context) }
 
-    val categories = listOf("Salary", "Freelance", "Groceries", "Rent", "Utilities", "Dining", "Shopping", "Entertainment", "Health", "General")
+    var dynamicCategories by remember { mutableStateOf(listOf("Salary", "Freelance", "Groceries", "Rent", "Utilities", "Dining", "Shopping", "Entertainment", "Health", "General")) }
     val paymentModes = listOf("Cash", "UPI", "Bank Transfer", "Card", "Cheque", "Other")
+
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasNotificationPermission = granted
+        if (granted) {
+            hasReminder = true
+        }
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -290,7 +316,14 @@ fun AddIncomeExpenseBottomSheet(
                                                 val parsed = IntelligentParser.parseInputText(context, text, emptyList())
                                                 if (parsed.amount != null) amountText = parsed.amount.toString()
                                                 if (parsed.paymentMode.isNotBlank()) selectedPaymentMode = parsed.paymentMode
-                                                if (!parsed.note.isNull_or_blank_compat()) note = parsed.note!!
+                                                if (!parsed.note.isNull_or_blank_compat()) {
+                                                    note = parsed.note!!
+                                                    val cat = CategoryTagExtractor.extractCategoryTag(note)
+                                                    if (cat !in dynamicCategories) {
+                                                        dynamicCategories = listOf(cat) + dynamicCategories
+                                                    }
+                                                    selectedCategory = cat
+                                                }
                                             }
                                         }
                                     },
@@ -422,9 +455,27 @@ fun AddIncomeExpenseBottomSheet(
             Spacer(modifier = Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = selectedCategory,
+                    onValueChange = { 
+                        selectedCategory = it
+                        if (it.isNotBlank() && it !in dynamicCategories) {
+                            dynamicCategories = listOf(it) + dynamicCategories
+                        }
+                    },
+                    label = { Text("Or Type New Category") },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                categories.take(5).forEach { cat ->
+                items(dynamicCategories) { cat ->
                     val isSel = selectedCategory == cat
                     Box(
                         modifier = Modifier
@@ -483,7 +534,13 @@ fun AddIncomeExpenseBottomSheet(
                     Spacer(modifier = Modifier.width(8.dp))
                     Switch(
                         checked = hasReminder,
-                        onCheckedChange = { hasReminder = it }
+                        onCheckedChange = { checked ->
+                            if (checked && !hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                hasReminder = checked
+                            }
+                        }
                     )
                 }
             }
