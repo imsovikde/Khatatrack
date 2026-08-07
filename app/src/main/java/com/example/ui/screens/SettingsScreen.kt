@@ -119,7 +119,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 StatusRow("Last Backup", "Database Active ✓", colors)
                 Spacer(modifier = Modifier.height(8.dp))
-                StatusRow("App Version", "v2.0 (Prompt 4 Hardened)", colors)
+                StatusRow("App Version", "v${com.example.BuildConfig.VERSION_NAME} (Build ${com.example.BuildConfig.VERSION_CODE})", colors)
             }
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))

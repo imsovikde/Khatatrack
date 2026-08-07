@@ -13,12 +13,18 @@ android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
+  val envVersionCode = System.getenv("BUILD_NUMBER")?.toIntOrNull()
+      ?: System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+      ?: 1
+  val envVersionName = System.getenv("VERSION_NAME")
+      ?: "1.0.$envVersionCode"
+
   defaultConfig {
     applicationId = "com.aistudio.khatatrack.vxbq"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = envVersionCode
+    versionName = envVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

@@ -43,6 +43,9 @@ jobs:
 
       - name: 🛠️ Compile Real Android APK from Codebase
         run: gradle assembleDebug --no-daemon
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
 
       - name: 🔍 Verify & Package Real APK Binary (>1MB Validation)
         run: |
@@ -64,13 +67,16 @@ jobs:
             exit 1
           fi
 
+          RAW_MSG=$(git log -1 --pretty=format:"%s")
+          CLEAN_TITLE=$(echo "${RAW_MSG}" | sed -E 's/^(feat|fix|perf|docs|chore|ci|refactor)(\([^)]+\))?: //i')
+
           if [ "${RAW_BRANCH}" = "main" ]; then
             VERSION_TAG="v1.0.${{ github.run_number }}"
-            RELEASE_TITLE="KhataTrack Main Release ${VERSION_TAG} 🚀"
+            RELEASE_TITLE="KhataTrack ${VERSION_TAG} — ${CLEAN_TITLE} 🚀"
             APK_NAME="KhataTrack-SouvikDey-main-${VERSION_TAG}.apk"
           else
             VERSION_TAG="${BRANCH_SLUG}-v1.0.${{ github.run_number }}"
-            RELEASE_TITLE="KhataTrack [${RAW_BRANCH}] Release ${VERSION_TAG} 🧪"
+            RELEASE_TITLE="KhataTrack [${RAW_BRANCH}] ${VERSION_TAG} — ${CLEAN_TITLE} 🧪"
             APK_NAME="KhataTrack-SouvikDey-${BRANCH_SLUG}-${VERSION_TAG}.apk"
           fi
 
@@ -86,7 +92,8 @@ jobs:
       - name: 🤖 Intelligent Release Notes Engine
         run: |
           COMMIT_HASH=$(git rev-parse --short HEAD)
-          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          COMMIT_SUBJECT=$(git log -1 --pretty=format:"%s")
+          COMMIT_BODY=$(git log -1 --pretty=format:"%b")
           BUILD_DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
 
           PREV_BRANCH_TAG=$(git describe --tags --match="${BRANCH_SLUG}*" --abbrev=0 2>/dev/null || echo "")
@@ -97,54 +104,72 @@ jobs:
             RANGE="HEAD~5..HEAD"
           fi
 
-          FEATS=$(git log ${RANGE} --grep="^feat" --pretty=format:"- 🎨 %s (\`%h\`)" 2>/dev/null || echo "")
-          FIXES=$(git log ${RANGE} --grep="^fix" --pretty=format:"- 🐛 %s (\`%h\`)" 2>/dev/null || echo "")
-          PERFS=$(git log ${RANGE} --grep="^perf" --pretty=format:"- ⚡ %s (\`%h\`)" 2>/dev/null || echo "")
-          DOCS=$(git log ${RANGE} --grep="^docs" --pretty=format:"- 📝 %s (\`%h\`)" 2>/dev/null || echo "")
-          CHORES=$(git log ${RANGE} --grep="^\(chore\|ci\|build\)" --pretty=format:"- 📦 %s (\`%h\`)" 2>/dev/null || echo "")
+          FEATS=$(git log ${RANGE} --grep="^feat" --pretty=format:"- 🎨 **%s** (\`%h\`)" 2>/dev/null || echo "")
+          FIXES=$(git log ${RANGE} --grep="^fix" --pretty=format:"- 🐛 **%s** (\`%h\`)" 2>/dev/null || echo "")
+          PERFS=$(git log ${RANGE} --grep="^perf" --pretty=format:"- ⚡ **%s** (\`%h\`)" 2>/dev/null || echo "")
+          DOCS=$(git log ${RANGE} --grep="^docs" --pretty=format:"- 📝 **%s** (\`%h\`)" 2>/dev/null || echo "")
+          CHORES=$(git log ${RANGE} --grep="^\(chore\|ci\|build\)" --pretty=format:"- 📦 **%s** (\`%h\`)" 2>/dev/null || echo "")
+          
           ALL_COMMITS=$(git log ${RANGE} --oneline --no-merges -n 10 | sed 's/^/- 💡 /')
+          FILE_CHANGES=$(git diff HEAD~1 --stat | head -n 25 | sed 's/^/  /')
           CHANGES_STAT=$(git log -1 --stat --oneline | tail -n 1)
 
           cat <<EOF > release_notes.md
-          # 💸 KhataTrack Real Android APK Release ${RELEASE_TAG} 🚀
+          # 💸 KhataTrack Release ${RELEASE_TAG} — ${CLEAN_TITLE} 🚀
 
-          ### 📱 Download Installable Android APK Binary
+          ### 📱 Direct APK Asset Download
           👉 **[Download ${APK_FILE}](https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${APK_FILE})**
 
           ---
 
-          ## 🧠 Real APK Binary Verification Summary
+          ## 🌟 Key Feature & Improvement Highlights
+          **Primary Focus**: \`${COMMIT_SUBJECT}\`
 
+          ${COMMIT_BODY:-"This release incorporates certified codebase updates compiled directly into the production-ready Android APK binary."}
+
+          ---
+
+          ## 📱 App Version & APK Metadata Verification
+
+          - **Version Name**: \`1.0.${{ github.run_number }}\`
+          - **Version Code**: \`${{ github.run_number }}\`
           - **Target Branch**: \`${RAW_BRANCH}\`
-          - **Installable APK File**: \`${APK_FILE}\`
-          - **Verified Binary Size**: \`${APK_SIZE_BYTES}\` bytes (Real Android APK Binary)
+          - **APK Asset Binary**: \`${APK_FILE}\`
+          - **Verified Binary Size**: \`${APK_SIZE_BYTES}\` bytes (~$(expr ${APK_SIZE_BYTES} / 1048576) MB)
           - **Maintainer**: **Souvik Dey** ([@imsovikde](https://github.com/imsovikde))
-          - **Latest Commit**: \`${COMMIT_HASH}\` — **${COMMIT_MSG}**
+          - **Latest Commit**: \`${COMMIT_HASH}\` — **${COMMIT_SUBJECT}**
           - **Build Timestamp**: ${BUILD_DATE}
-          - **Code Changes Stat**: \`${CHANGES_STAT}\`
           - **Compatibility**: Android 7.0+ (API 24 to 36)
 
           ---
 
-          ### 📋 Categorized Commitment Changes
+          ## 🔍 File-Level Code Changes & Modified Components
 
-          ${FEATS:-"- 🎨 Feature updates compiled directly from codebase."}
-          ${FIXES:-"- 🐛 Bug fixes & stability patches."}
-          ${PERFS:-"- ⚡ Jetpack Compose & Room Database optimizations."}
-          ${DOCS:-"- 📝 Documentation & setup guidelines."}
-          ${CHORES:-"- 📦 Gradle build dependencies & workflow updates."}
+          \`\`\`text
+          ${FILE_CHANGES:-"  No single file stat available."}
+          \`\`\`
 
           ---
 
-          ### 📜 Branch Recent Commit History
+          ### 📋 Detailed Commit Categorization
+
+          ${FEATS:-"- 🎨 Feature updates compiled into codebase."}
+          ${FIXES:-"- 🐛 Bug fixes & test stability enhancements."}
+          ${PERFS:-"- ⚡ Compose UI & Room database optimizations."}
+          ${DOCS:-"- 📝 Documentation & setup guidelines."}
+          ${CHORES:-"- 📦 Gradle build dependencies & CI workflow updates."}
+
+          ---
+
+          ### 📜 Commit History in this Build
           ${ALL_COMMITS}
 
           ---
 
           > [!NOTE]
-          > All previous real APK versions remain archived and downloadable anytime in the [Releases History Section](https://github.com/${{ github.repository }}/releases).
+          > All previous real APK versions remain archived and downloadable anytime in the [Releases History Archive](https://github.com/${{ github.repository }}/releases).
 
-          *Compiled directly from codebase by KhataTrack Release Engine for Souvik Dey.*
+          *Engineered & compiled directly for Souvik Dey by KhataTrack Release Engine.*
           EOF
 
       - name: 🚀 Publish Real Release with APK Asset via GH CLI
