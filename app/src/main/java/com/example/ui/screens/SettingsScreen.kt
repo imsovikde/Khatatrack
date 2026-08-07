@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -37,6 +39,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,6 +72,7 @@ fun SettingsScreen(
     onOpenTraceLog: () -> Unit,
     onOpenCategoryManagement: () -> Unit,
     onOpenBackupData: () -> Unit,
+    onTestNotification: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val colors = KhataTheme.colors
@@ -485,10 +489,21 @@ fun SettingsScreen(
             }
             HorizontalDivider(color = colors.divider, thickness = 1.dp)
 
+            var devTapCount by remember { mutableStateOf(0) }
+            var isDevModeEnabled by remember { mutableStateOf(false) }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colors.bgSurface)
+                    .clickable { 
+                        if (!isDevModeEnabled) {
+                            devTapCount++
+                            if (devTapCount >= 5) {
+                                isDevModeEnabled = true
+                            }
+                        }
+                    }
                     .padding(horizontal = KhataTheme.spacing.md, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -503,6 +518,42 @@ fun SettingsScreen(
                     Text(text = "KhataTrack Version", style = BodyStyle, color = colors.textPrimary)
                 }
                 Text(text = "v${com.example.BuildConfig.VERSION_NAME}", style = BodyStyle, color = colors.textSecondary)
+            }
+            
+            if (isDevModeEnabled) {
+                Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
+                
+                Text(
+                    text = "DEVELOPER OPTIONS",
+                    style = CaptionStyle,
+                    color = colors.textSecondary,
+                    modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
+                )
+                
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(colors.bgSurface)
+                        .clickable { onTestNotification() }
+                        .padding(horizontal = KhataTheme.spacing.md, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.NotificationsActive,
+                            contentDescription = "Test Notification",
+                            tint = colors.textSecondary
+                        )
+                        Spacer(modifier = Modifier.padding(horizontal = 8.dp))
+                        Text(text = "Test Local Notification", style = BodyStyle, color = colors.textPrimary)
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                        contentDescription = "Run",
+                        tint = colors.textDisabled
+                    )
+                }
             }
             
             if (showDependenciesDialog) {

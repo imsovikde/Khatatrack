@@ -345,7 +345,17 @@ class MainActivity : ComponentActivity() {
                                         onOpenTrash = { viewModel.navigateTo(Screen.TRASH) },
                                         onOpenTraceLog = { viewModel.openFullTraceLog() },
                                         onOpenCategoryManagement = { viewModel.navigateTo(Screen.CATEGORY_PAYMENT_MODE) },
-                                        onOpenBackupData = { viewModel.navigateTo(Screen.BACKUP_DATA) }
+                                        onOpenBackupData = { viewModel.navigateTo(Screen.BACKUP_DATA) },
+                                        onTestNotification = {
+                                            com.example.util.NotificationHelper.showNotification(
+                                                context = context,
+                                                title = "Developer Test Notification",
+                                                message = "This is a test notification from KhataTrack Developer Options.",
+                                                intent = android.content.Intent(context, MainActivity::class.java).apply {
+                                                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                                }
+                                            )
+                                        }
                                     )
                                 }
 
