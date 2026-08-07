@@ -11,12 +11,13 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.ui.theme.KhataTheme
 
 @Composable
 fun KhataTrackLogo(
     modifier: Modifier = Modifier,
     height: Dp = 36.dp,
-    isDark: Boolean = isSystemInDarkTheme()
+    isDark: Boolean = KhataTheme.colors.isDark
 ) {
     val primaryColor = if (isDark) Color.White else Color(0xFF0E0D0F)
     val accentColor = Color(0xFF26DBC1)
@@ -35,8 +36,18 @@ fun KhataTrackLogo(
         val scaleX = size.width / 150f
         val scaleY = size.height / 172.4f
         
+        val bounds = Path().apply {
+            addPath(leftStemPath)
+            addPath(upperBranchPath)
+            addPath(lowerBranchPath)
+        }.getBounds()
+
+        val dx = (150f - bounds.width) / 2f - bounds.left
+        val dy = (172.4f - bounds.height) / 2f - bounds.top
+
         drawContext.canvas.save()
         drawContext.canvas.scale(scaleX, scaleY)
+        drawContext.canvas.translate(dx, dy)
         
         drawPath(path = leftStemPath, brush = SolidColor(primaryColor))
         drawPath(path = upperBranchPath, brush = SolidColor(primaryColor))
