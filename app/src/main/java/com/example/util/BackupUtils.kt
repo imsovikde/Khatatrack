@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import com.example.data.model.CategoryItem
 import com.example.data.model.Contact
+import com.example.data.model.IncomeExpenseEntry
 import com.example.data.model.PaymentModeItem
 import com.example.data.model.Reminder
 import com.example.data.model.TraceLog
@@ -32,7 +33,9 @@ data class BackupSummary(
     val categories: List<CategoryItem>,
     val paymentModes: List<PaymentModeItem>,
     val traceLogs: List<TraceLog>,
-    val reminders: List<Reminder>
+    val reminders: List<Reminder>,
+    val incomeExpenseCount: Int,
+    val incomeExpenseEntries: List<IncomeExpenseEntry>
 )
 
 object BackupUtils {
@@ -55,7 +58,7 @@ object BackupUtils {
             val encryptedBytes = cipher.doFinal(input.toByteArray(Charsets.UTF_8))
             android.util.Base64.encodeToString(encryptedBytes, android.util.Base64.NO_WRAP)
         } catch (e: Exception) {
-            input
+            throw RuntimeException("Encryption failed", e)
         }
     }
 
@@ -68,7 +71,7 @@ object BackupUtils {
             val decodedBytes = android.util.Base64.decode(input, android.util.Base64.NO_WRAP)
             String(cipher.doFinal(decodedBytes), Charsets.UTF_8)
         } catch (e: Exception) {
-            input
+            throw RuntimeException("Decryption failed", e)
         }
     }
 
@@ -79,6 +82,7 @@ object BackupUtils {
         paymentModes: List<PaymentModeItem>,
         traceLogs: List<TraceLog>,
         reminders: List<Reminder>,
+        incomeExpenseEntries: List<IncomeExpenseEntry>,
         encrypt: Boolean
     ): String {
         val payloadObj = JSONObject()
@@ -187,6 +191,31 @@ object BackupUtils {
         }
         payloadObj.put("reminders", remArray)
 
+        
+        // Income/Expense
+        val incArray = JSONArray()
+        for (ie in incomeExpenseEntries) {
+            val ieObj = JSONObject()
+            ieObj.put("id", ie.id)
+            ieObj.put("type", ie.type)
+            ieObj.put("amount", ie.amount)
+            ieObj.put("currency", ie.currency)
+            ieObj.put("transactionDate", ie.transactionDate)
+            ieObj.put("transactionTime", ie.transactionTime)
+            ieObj.put("paymentMode", ie.paymentMode)
+            ieObj.put("transactionRefId", ie.transactionRefId ?: "")
+            ieObj.put("categoryTag", ie.categoryTag)
+            ieObj.put("note", ie.note ?: "")
+            ieObj.put("attachmentPhoto", ie.attachmentPhoto ?: "")
+            ieObj.put("collectionDueDate", ie.collectionDueDate ?: 0L)
+            ieObj.put("createdAt", ie.createdAt)
+            ieObj.put("updatedAt", ie.updatedAt)
+            ieObj.put("isDeleted", ie.isDeleted)
+            ieObj.put("deletedAt", ie.deletedAt ?: 0L)
+            incArray.put(ieObj)
+        }
+        payloadObj.put("incomeExpenseEntries", incArray)
+        
         val rawPayloadString = payloadObj.toString()
         val checksumHash = sha256(rawPayloadString)
 
@@ -290,9 +319,12 @@ object BackupUtils {
                 // Fallback to legacy JSON format
                 val rawStream = context.contentResolver.openInputStream(uri) ?: return Pair(null, "Unable to read.")
                 val reader = BufferedReader(InputStreamReader(rawStream))
-                jsonString = reader.readText()
-                reader.close()
-                rawStream.close()
+                try {
+                    jsonString = reader.readText()
+                } finally {
+                    reader.close()
+                    rawStream.close()
+                }
             }
 
 
@@ -324,10 +356,7 @@ object BackupUtils {
                 if (pPhoto != null) {
                     val hash = sha256(pPhoto)
                     if (extractedFiles.containsKey(hash)) {
-                        val permFile = File(context.filesDir, "attachments/$hash")
-                        permFile.parentFile?.mkdirs()
-                        extractedFiles[hash]?.copyTo(permFile, overwrite = true)
-                        pPhoto = Uri.fromFile(permFile).toString()
+                        pPhoto = Uri.fromFile(extractedFiles[hash]).toString()
                     } else {
                         pPhoto = null
                     }
@@ -359,10 +388,7 @@ object BackupUtils {
                 if (aPhoto != null) {
                     val hash = sha256(aPhoto)
                     if (extractedFiles.containsKey(hash)) {
-                        val permFile = File(context.filesDir, "attachments/$hash")
-                        permFile.parentFile?.mkdirs()
-                        extractedFiles[hash]?.copyTo(permFile, overwrite = true)
-                        aPhoto = Uri.fromFile(permFile).toString()
+                        aPhoto = Uri.fromFile(extractedFiles[hash]).toString()
                     } else {
                         aPhoto = null
                     }

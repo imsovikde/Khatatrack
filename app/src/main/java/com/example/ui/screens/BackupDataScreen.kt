@@ -145,6 +145,7 @@ fun BackupDataScreen(
                             val pms = viewModel.repository.allPaymentModes.first()
                             val traces = viewModel.repository.allTraces.first()
                             val rems = viewModel.repository.pendingReminders.first()
+                            val ies = viewModel.repository.allIncomeExpenseEntries.first()
 
                             val jsonString = BackupUtils.generateBackupJson(
                                 contacts = contacts,
@@ -153,6 +154,7 @@ fun BackupDataScreen(
                                 paymentModes = pms,
                                 traceLogs = traces,
                                 reminders = rems,
+                                incomeExpenseEntries = ies,
                                 encrypt = isEncryptionEnabled
                             )
 
@@ -502,6 +504,7 @@ fun BackupDataScreen(
                                     transactions = summary.transactions,
                                     categories = summary.categories,
                                     paymentModes = summary.paymentModes,
+                                    incomeExpenseEntries = summary.incomeExpenseEntries,
                                     traceLogs = summary.traceLogs,
                                     reminders = summary.reminders,
                                     replaceExisting = false

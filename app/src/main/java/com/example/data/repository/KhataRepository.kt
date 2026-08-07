@@ -472,6 +472,7 @@ class KhataRepository(
         transactions: List<Transaction>,
         categories: List<CategoryItem>,
         paymentModes: List<PaymentModeItem>,
+        incomeExpenseEntries: List<IncomeExpenseEntry>,
         traceLogs: List<TraceLog>,
         reminders: List<Reminder>,
         replaceExisting: Boolean
@@ -480,12 +481,16 @@ class KhataRepository(
             contactDao.clearAllContacts()
             transactionDao.clearAllTransactions()
             traceLogDao.clearAllTraces()
+            incomeExpenseEntryDao.hardDeleteAll()
         }
 
         contactDao.insertContacts(contacts)
         transactionDao.insertTransactions(transactions)
         if (categories.isNotEmpty()) categoryDao.insertCategories(categories)
         if (paymentModes.isNotEmpty()) paymentModeDao.insertPaymentModes(paymentModes)
+        if (incomeExpenseEntries.isNotEmpty()) {
+            incomeExpenseEntries.forEach { incomeExpenseEntryDao.insert(it) }
+        }
         if (traceLogs.isNotEmpty()) traceLogDao.insertTraces(traceLogs)
 
         traceLogDao.insertTrace(
