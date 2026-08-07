@@ -116,6 +116,12 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.update { it.copy(isAppLockEnabled = persisted) }
             }
         }
+        // Restore persisted security PIN
+        viewModelScope.launch(exceptionHandler) {
+            AppPreferencesManager.securityPin(application).collect { persisted ->
+                _uiState.update { it.copy(securityPin = persisted) }
+            }
+        }
     }
 
     fun getTrashRetentionDays(): Int {

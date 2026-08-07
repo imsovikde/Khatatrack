@@ -40,6 +40,7 @@ import com.example.ui.theme.TitleStyle
 @Composable
 fun AppLockScreen(
     onUnlock: () -> Unit,
+    correctPin: String = "1234",
     modifier: Modifier = Modifier
 ) {
     val colors = KhataTheme.colors
@@ -47,7 +48,6 @@ fun AppLockScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val pinLength = 4
-    val correctPin = "1234" // Default PIN
 
     Column(
         modifier = modifier
@@ -71,7 +71,7 @@ fun AppLockScreen(
         Spacer(modifier = Modifier.height(KhataTheme.spacing.xs))
 
         Text(
-            text = "Enter Security PIN (Default: 1234)",
+            text = "Enter Security PIN to access KhataTrack",
             style = CaptionStyle,
             color = colors.textSecondary
         )

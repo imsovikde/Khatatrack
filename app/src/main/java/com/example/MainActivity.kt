@@ -130,7 +130,10 @@ class MainActivity : ComponentActivity() {
 
             KhataTrackTheme(darkTheme = uiState.isDarkMode) {
                 if (uiState.isAppLockEnabled && uiState.isAppLocked) {
-                    AppLockScreen(onUnlock = { viewModel.unlockApp() })
+                    AppLockScreen(
+                        onUnlock = { viewModel.unlockApp() },
+                        correctPin = uiState.securityPin
+                    )
                 } else {
                     val currentScreen = uiState.currentScreen
                     val showBottomNav = currentScreen in listOf(
