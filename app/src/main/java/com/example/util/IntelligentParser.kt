@@ -2,6 +2,7 @@ package com.example.util
 
 import android.content.Context
 import com.example.data.model.Contact
+import com.example.data.model.IncomeExpenseEntry
 import com.example.data.model.Transaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,6 +25,15 @@ data class ParsedTransactionResult(
     val collectionDueDate: Long? = null,
     val referenceNumber: String? = null,
     val parsedSource: String = "LOCAL" // LOCAL or GEMINI
+)
+
+data class ParsedIncomeExpenseResult(
+    val type: String = IncomeExpenseEntry.TYPE_EXPENSE, // INCOME or EXPENSE
+    val amount: Double? = null,
+    val categoryTag: String = "General",
+    val paymentMode: String = "Cash",
+    val note: String? = null,
+    val parsedSource: String = "LOCAL"
 )
 
 object IntelligentParser {
@@ -87,8 +97,18 @@ object IntelligentParser {
         val lowerText = rawText.lowercase()
 
         // 1. Intent Classifier
-        val gaveKeywords = listOf("gave", "paid", "lent", "spent", "sent", "transfer to", "diya", "deya")
-        val gotKeywords = listOf("got", "received", "took", "borrowed", "collected", "liya", "leya")
+        val gaveKeywords = listOf(
+            "gave", "paid", "lent", "spent", "sent", "transfer to", "diya", "deya",
+            "purchased", "purchase", "bought", "buy", "ordered", "order", "shopping",
+            "debited", "deducted", "withdrawn", "withdraw", "emi", "bill", "invoice",
+            "kharch", "kharcha", "de diya", "fee", "payment"
+        )
+        val gotKeywords = listOf(
+            "got", "received", "took", "borrowed", "collected", "liya", "leya",
+            "earned", "earn", "credited", "salary", "income", "revenue", "bonus",
+            "cashback", "refund", "dividend", "profit", "gain", "interest",
+            "payment received", "mila", "mili", "aaya", "aai"
+        )
 
         var intent = Transaction.TYPE_YOU_GAVE
         val containsGot = gotKeywords.any { lowerText.contains(it) }
@@ -242,6 +262,69 @@ object IntelligentParser {
             note = note,
             collectionDueDate = dueDateMillis,
             referenceNumber = refNumber,
+            parsedSource = "LOCAL"
+        )
+    }
+
+    /**
+     * Parse voice/typed text for personal income/expense (not ledger transactions).
+     */
+    fun parseForIncomeExpense(rawText: String): ParsedIncomeExpenseResult {
+        val lower = rawText.lowercase()
+
+        // Determine type
+        val expenseKeywords = listOf(
+            "spent", "paid", "bought", "purchased", "purchase", "ordered", "shopping",
+            "debited", "bill", "fee", "emi", "expense", "kharch", "kharcha"
+        )
+        val incomeKeywords = listOf(
+            "received", "earned", "got", "credited", "salary", "income", "revenue",
+            "bonus", "cashback", "refund", "dividend", "mila", "aaya"
+        )
+        val isExpense = expenseKeywords.any { lower.contains(it) }
+        val isIncome = incomeKeywords.any { lower.contains(it) }
+        val type = when {
+            isIncome && !isExpense -> IncomeExpenseEntry.TYPE_INCOME
+            else -> IncomeExpenseEntry.TYPE_EXPENSE
+        }
+
+        // Amount
+        val amountRegex = Regex("(?:₹|rs\.?|rupees?)?\\s*(\\d+(?:\.\\d{1,2})?|\\d+k)", RegexOption.IGNORE_CASE)
+        var amount: Double? = null
+        amountRegex.find(rawText)?.let {
+            val s = it.groupValues[1].lowercase()
+            amount = if (s.endsWith("k")) s.dropLast(1).toDoubleOrNull()?.times(1000) else s.toDoubleOrNull()
+        }
+
+        // Category from keywords
+        val category = when {
+            lower.contains("food") || lower.contains("lunch") || lower.contains("dinner") || lower.contains("breakfast") -> "Food"
+            lower.contains("petrol") || lower.contains("fuel") || lower.contains("taxi") || lower.contains("auto") || lower.contains("travel") -> "Transport"
+            lower.contains("salary") || lower.contains("bonus") || lower.contains("earning") -> "Salary"
+            lower.contains("shopping") || lower.contains("cloth") || lower.contains("shoe") -> "Shopping"
+            lower.contains("medical") || lower.contains("doctor") || lower.contains("medicine") || lower.contains("hospital") -> "Health"
+            lower.contains("rent") || lower.contains("electricity") || lower.contains("water") || lower.contains("bill") -> "Bills"
+            lower.contains("emi") || lower.contains("loan") -> "Loan/EMI"
+            lower.contains("refund") || lower.contains("cashback") -> "Refund"
+            lower.contains("invest") || lower.contains("mutual fund") || lower.contains("stock") -> "Investment"
+            else -> "General"
+        }
+
+        // Payment mode
+        val paymentMode = when {
+            lower.contains("upi") || lower.contains("gpay") || lower.contains("phonepe") || lower.contains("paytm") -> "UPI"
+            lower.contains("card") || lower.contains("debit") || lower.contains("credit") -> "Card"
+            lower.contains("bank") || lower.contains("neft") || lower.contains("imps") -> "Bank Transfer"
+            lower.contains("cheque") || lower.contains("check") -> "Cheque"
+            else -> "Cash"
+        }
+
+        return ParsedIncomeExpenseResult(
+            type = type,
+            amount = amount,
+            categoryTag = category,
+            paymentMode = paymentMode,
+            note = rawText,
             parsedSource = "LOCAL"
         )
     }
