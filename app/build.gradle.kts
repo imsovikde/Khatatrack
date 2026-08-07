@@ -13,9 +13,21 @@ android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
+  fun getGitCommitCount(): Int {
+      return try {
+          val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+              .redirectErrorStream(true)
+              .start()
+          process.inputStream.bufferedReader().readText().trim().toInt()
+      } catch (e: Exception) {
+          1
+      }
+  }
+
+  val gitVersionCode = getGitCommitCount()
   val envVersionCode = System.getenv("BUILD_NUMBER")?.toIntOrNull()
       ?: System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
-      ?: 1
+      ?: gitVersionCode
   val envVersionName = System.getenv("VERSION_NAME")
       ?: "1.0.$envVersionCode"
 
