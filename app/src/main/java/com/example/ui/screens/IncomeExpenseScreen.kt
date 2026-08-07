@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.IncomeExpenseEntry
 import com.example.ui.components.AddIncomeExpenseBottomSheet
+import com.example.ui.components.IncomeExpenseDetailBottomSheet
 import com.example.ui.components.EmptyState
 import com.example.ui.components.PdfPreviewDialog
 import com.example.ui.theme.BodyStyle
@@ -95,6 +96,7 @@ fun IncomeExpenseScreen(
     var currentPeriod by remember { mutableStateOf(EntryDatePeriod.THIS_MONTH) }
     var isAddSheetOpen by remember { mutableStateOf(false) }
     var editingEntry by remember { mutableStateOf<IncomeExpenseEntry?>(null) }
+    var detailEntry by remember { mutableStateOf<IncomeExpenseEntry?>(null) }
     var showMenu by remember { mutableStateOf(false) }
 
     var pdfPreviewFile by remember { mutableStateOf<File?>(null) }
@@ -346,10 +348,7 @@ fun IncomeExpenseScreen(
                     items(filteredEntries, key = { it.id }) { entry ->
                         IncomeExpenseCard(
                             entry = entry,
-                            onClick = {
-                                editingEntry = entry
-                                isAddSheetOpen = true
-                            },
+                            onClick = { detailEntry = entry },
                             onDelete = { onDeleteEntry(entry.id) }
                         )
                         Spacer(modifier = Modifier.height(6.dp))
@@ -362,16 +361,39 @@ fun IncomeExpenseScreen(
     // Add / Edit Sheet
     AddIncomeExpenseBottomSheet(
         isOpen = isAddSheetOpen,
-        onDismiss = { isAddSheetOpen = false },
+        onDismiss = {
+            isAddSheetOpen = false
+            editingEntry = null
+        },
         onSave = { entry ->
             if (editingEntry != null) {
                 onUpdateEntry(entry)
             } else {
                 onAddEntry(entry)
             }
+            isAddSheetOpen = false
+            editingEntry = null
         },
         editingEntry = editingEntry
     )
+
+    // Detail Sheet
+    val currentDetailEntry = detailEntry
+    if (currentDetailEntry != null) {
+        IncomeExpenseDetailBottomSheet(
+            entry = currentDetailEntry,
+            onDismiss = { detailEntry = null },
+            onEdit = {
+                editingEntry = currentDetailEntry
+                detailEntry = null
+                isAddSheetOpen = true
+            },
+            onDelete = {
+                onDeleteEntry(currentDetailEntry.id)
+                detailEntry = null
+            }
+        )
+    }
 }
 
 @Composable
