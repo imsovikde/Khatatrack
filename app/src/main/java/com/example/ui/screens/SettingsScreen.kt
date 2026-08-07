@@ -496,7 +496,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.padding(horizontal = 8.dp))
                     Text(text = "KhataTrack Version", style = BodyStyle, color = colors.textPrimary)
                 }
-                Text(text = "v2.0 (Advanced)", style = BodyStyle, color = colors.textSecondary)
+                Text(text = "v${com.example.BuildConfig.VERSION_NAME}", style = BodyStyle, color = colors.textSecondary)
             }
             
             if (showDependenciesDialog) {

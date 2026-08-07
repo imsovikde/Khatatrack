@@ -2,6 +2,10 @@ package com.example.ui.components
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.os.Build
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -109,6 +113,25 @@ fun AddTransactionBottomSheet(
 
     var entryMode by remember { mutableStateOf("FOR_CONTACT") }
     var selectedContactId by remember { mutableStateOf(contactsList.find { it.name == contactName }?.id) }
+
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasNotificationPermission = granted
+        if (granted) {
+            // Permission granted, handled in switch if needed. We don't automatically toggle here to avoid race condition with state.
+        }
+    }
 
     var attachmentPhotoUri by remember { mutableStateOf<String?>(editingTransaction?.attachmentPhoto) }
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -687,7 +710,15 @@ fun AddTransactionBottomSheet(
                 )
                 Switch(
                     checked = isReminderEnabled,
-                    onCheckedChange = { isReminderEnabled = it },
+                    onCheckedChange = { checked ->
+                        if (checked && !hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            // Optionally set to true if you assume grant, or let user try again. Let's just set it.
+                            isReminderEnabled = true
+                        } else {
+                            isReminderEnabled = checked
+                        }
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = colors.bgSurface,
                         checkedTrackColor = semanticColor,
