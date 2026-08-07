@@ -264,7 +264,7 @@ fun AiAssistantScreen(
                                             "Top Contacts: ${contacts.take(3).joinToString { it.contact.name }}" +
                                             "\n\nUser request: $inputToProcess"
                                         
-                                        val response = AiService.generateDirectResponse(context, promptWithContext)
+                                        val response = AiService.generateAiText(context, promptWithContext)
                                         isChatLoading = false
                                         
                                         // Simple regex action parser
@@ -998,13 +998,13 @@ fun AiChatTab(
         ) {
             val suggestions = listOf("Add Expense", "Check Balance", "Log Income", "Send Reminder")
             items(suggestions.size) { index ->
-                SemanticChip(
-                    text = suggestions[index],
-                    onClick = { 
-                        onChatInputChange(suggestions[index])
-                    },
-                    type = com.example.ui.components.ChipType.NEUTRAL
-                )
+                    SemanticChip(
+                        text = suggestions[index],
+                        onClick = { 
+                            onChatInputChange(suggestions[index])
+                        },
+                        isSelected = false
+                    )
             }
         }
 

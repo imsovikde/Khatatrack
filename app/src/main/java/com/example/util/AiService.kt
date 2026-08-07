@@ -27,6 +27,7 @@ object AiService {
                 AiProvider.GEMINI -> generateGeminiText(context, prompt, systemPrompt)
                 AiProvider.OPENAI -> generateOpenAiText(context, prompt, systemPrompt)
                 AiProvider.ANTHROPIC -> generateAnthropicText(context, prompt, systemPrompt)
+                else -> "Unsupported provider: ${provider.name}"
             }
         } catch (e: Exception) {
             e.printStackTrace()

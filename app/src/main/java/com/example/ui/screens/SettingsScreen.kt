@@ -459,7 +459,7 @@ fun SettingsScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.AutoAwesome,
+                        imageVector = Icons.Default.Star,
                         contentDescription = "AI Hub",
                         tint = colors.textSecondary
                     )

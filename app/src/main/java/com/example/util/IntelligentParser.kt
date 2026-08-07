@@ -289,7 +289,7 @@ object IntelligentParser {
         }
 
         // Amount
-        val amountRegex = Regex("(?:₹|rs\.?|rupees?)?\\s*(\\d+(?:\.\\d{1,2})?|\\d+k)", RegexOption.IGNORE_CASE)
+        val amountRegex = Regex("(?:₹|rs\\.?|rupees?)?\\s*(\\d+(?:\\.\\d{1,2})?|\\d+k)", RegexOption.IGNORE_CASE)
         var amount: Double? = null
         amountRegex.find(rawText)?.let {
             val s = it.groupValues[1].lowercase()

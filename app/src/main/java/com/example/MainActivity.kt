@@ -249,7 +249,15 @@ class MainActivity : ComponentActivity() {
                                         summaryTotals = summaryTotals,
                                         traceLogs = emptyList(),
                                         onAddIncomeExpenseEntry = { amount, note, type, categoryTag, timestamp ->
-                                            viewModel.addIncomeExpenseEntry(amount, note, type, categoryTag, timestamp)
+                                            viewModel.addIncomeExpenseEntry(
+                                                com.example.data.model.IncomeExpenseEntry(
+                                                    amount = amount,
+                                                    note = note,
+                                                    type = type,
+                                                    categoryTag = categoryTag,
+                                                    transactionDate = timestamp
+                                                )
+                                            )
                                         },
                                         onAddTransaction = { contactId, type, amount, paymentMode, note, categoryTag, dueDate, referenceNumber ->
                                             viewModel.addTransactionForContact(contactId, type, amount, paymentMode, note, categoryTag, dueDate, referenceNumber)
@@ -340,6 +348,7 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                  Screen.SETTINGS -> {
+                                    val context = androidx.compose.ui.platform.LocalContext.current
                                     SettingsScreen(
                                         isDarkMode = uiState.isDarkMode,
                                         onDarkModeToggle = { viewModel.toggleDarkMode(it) },
