@@ -412,7 +412,7 @@ object BackupUtils {
                         updatedAt = o.optLong("updatedAt"),
                         isDeleted = o.optBoolean("isDeleted", false),
                         deletedAt = if (o.has("deletedAt") && o.getLong("deletedAt") != 0L) o.getLong("deletedAt") else null,
-                        tags = o.optString("tags").ifEmpty { null }
+                        tags = o.optString("tags", "")
                     )
                 )
             }
@@ -512,7 +512,7 @@ object BackupUtils {
                         updatedAt = o.optLong("updatedAt"),
                         isDeleted = o.optBoolean("isDeleted", false),
                         deletedAt = if (o.has("deletedAt") && o.getLong("deletedAt") != 0L) o.getLong("deletedAt") else null,
-                        tags = o.optString("tags").ifEmpty { null }
+                        tags = o.optString("tags", "")
                     )
                 )
             }
