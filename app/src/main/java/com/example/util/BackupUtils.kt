@@ -328,6 +328,8 @@ object BackupUtils {
                         permFile.parentFile?.mkdirs()
                         extractedFiles[hash]?.copyTo(permFile, overwrite = true)
                         pPhoto = Uri.fromFile(permFile).toString()
+                    } else {
+                        pPhoto = null
                     }
                 }
                 contacts.add(
@@ -361,6 +363,8 @@ object BackupUtils {
                         permFile.parentFile?.mkdirs()
                         extractedFiles[hash]?.copyTo(permFile, overwrite = true)
                         aPhoto = Uri.fromFile(permFile).toString()
+                    } else {
+                        aPhoto = null
                     }
                 }
                 transactions.add(
