@@ -714,78 +714,112 @@ fun AiAssistantScreen(
 
                                     Spacer(modifier = Modifier.height(16.dp))
 
-                                    // Fields for Custom Endpoint
-                                    if (currentProvider != AiProvider.GEMINI) {
-                                        OutlinedTextField(
-                                            value = endpointUrl,
-                                            onValueChange = { endpointUrl = it },
-                                            label = { Text("Base Endpoint URL") },
-                                            placeholder = { Text(if (currentProvider == AiProvider.OPENAI) "https://api.openai.com/v1/chat/completions" else "https://api.anthropic.com/v1/messages") },
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedContainerColor = colors.bgCanvas,
-                                                unfocusedContainerColor = colors.bgCanvas
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .testTag("custom_endpoint_url_input")
+                                    // Provider hint card
+                                    val providerHint = when (currentProvider) {
+                                        AiProvider.GEMINI -> "Gemini is built-in and requires no configuration. You can optionally add your own Gemini API key below."
+                                        AiProvider.NVIDIA_NIM -> "Nvidia NIM: use https://integrate.api.nvidia.com/v1/chat/completions. Model: nvidia/llama-3.1-nemotron-70b-instruct. API Key from build.nvidia.com."
+                                        AiProvider.OPENAI -> "OpenAI Compatible: endpoint https://api.openai.com/v1/chat/completions or any OpenAI-compatible server. Models: gpt-4o-mini, gpt-4o."
+                                        AiProvider.ANTHROPIC -> "Anthropic: endpoint https://api.anthropic.com/v1/messages. Model: claude-3-haiku-20240307."
+                                    }
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = colors.creditSurface),
+                                        shape = KhataTheme.shapes.sm
+                                    ) {
+                                        Text(
+                                            text = providerHint,
+                                            style = CaptionStyle,
+                                            color = colors.credit,
+                                            modifier = Modifier.padding(10.dp)
                                         )
+                                    }
 
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        
-                                        if (availableModels.isNotEmpty()) {
-                                            ExposedDropdownMenuBox(
-                                                expanded = isModelDropdownExpanded,
-                                                onExpandedChange = { isModelDropdownExpanded = !isModelDropdownExpanded }
-                                            ) {
-                                                OutlinedTextField(
-                                                    value = modelNameInput,
-                                                    onValueChange = { modelNameInput = it },
-                                                    label = { Text("Selected Model") },
-                                                    readOnly = false,
-                                                    trailingIcon = {
-                                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = isModelDropdownExpanded)
-                                                    },
-                                                    colors = OutlinedTextFieldDefaults.colors(
-                                                        focusedContainerColor = colors.bgCanvas,
-                                                        unfocusedContainerColor = colors.bgCanvas
-                                                    ),
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .menuAnchor()
-                                                )
-                                                ExposedDropdownMenu(
-                                                    expanded = isModelDropdownExpanded,
-                                                    onDismissRequest = { isModelDropdownExpanded = false }
-                                                ) {
-                                                    availableModels.forEach { model ->
-                                                        DropdownMenuItem(
-                                                            text = { Text(text = model) },
-                                                            onClick = {
-                                                                modelNameInput = model
-                                                                isModelDropdownExpanded = false
-                                                                AiConfigManager.saveCustomConfig(context, endpointUrl, apiKeyInput, modelNameInput)
-                                                            }
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        } else {
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Endpoint URL — always visible
+                                    val endpointPlaceholder = when (currentProvider) {
+                                        AiProvider.GEMINI -> "Optional: custom Gemini endpoint"
+                                        AiProvider.NVIDIA_NIM -> "https://integrate.api.nvidia.com/v1/chat/completions"
+                                        AiProvider.OPENAI -> "https://api.openai.com/v1/chat/completions"
+                                        AiProvider.ANTHROPIC -> "https://api.anthropic.com/v1/messages"
+                                    }
+                                    OutlinedTextField(
+                                        value = endpointUrl,
+                                        onValueChange = { endpointUrl = it },
+                                        label = { Text("Base Endpoint URL") },
+                                        placeholder = { Text(endpointPlaceholder, style = CaptionStyle) },
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor = colors.bgCanvas,
+                                            unfocusedContainerColor = colors.bgCanvas
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("custom_endpoint_url_input")
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Model Name — always visible, with provider-aware dropdown
+                                    val modelPlaceholder = when (currentProvider) {
+                                        AiProvider.GEMINI -> "gemini-2.0-flash (default)"
+                                        AiProvider.NVIDIA_NIM -> "nvidia/llama-3.1-nemotron-70b-instruct"
+                                        AiProvider.OPENAI -> "gpt-4o-mini"
+                                        AiProvider.ANTHROPIC -> "claude-3-haiku-20240307"
+                                    }
+                                    if (availableModels.isNotEmpty()) {
+                                        ExposedDropdownMenuBox(
+                                            expanded = isModelDropdownExpanded,
+                                            onExpandedChange = { isModelDropdownExpanded = !isModelDropdownExpanded }
+                                        ) {
                                             OutlinedTextField(
                                                 value = modelNameInput,
                                                 onValueChange = { modelNameInput = it },
-                                                label = { Text("Model Name (e.g. gpt-4o-mini, claude-3-haiku, nvidia/llama-3.1)") },
+                                                label = { Text("Model ID") },
+                                                placeholder = { Text(modelPlaceholder, style = CaptionStyle) },
+                                                readOnly = false,
+                                                trailingIcon = {
+                                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = isModelDropdownExpanded)
+                                                },
                                                 colors = OutlinedTextFieldDefaults.colors(
                                                     focusedContainerColor = colors.bgCanvas,
                                                     unfocusedContainerColor = colors.bgCanvas
                                                 ),
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .testTag("custom_model_name_input")
+                                                    .menuAnchor()
                                             )
+                                            ExposedDropdownMenu(
+                                                expanded = isModelDropdownExpanded,
+                                                onDismissRequest = { isModelDropdownExpanded = false }
+                                            ) {
+                                                availableModels.forEach { model ->
+                                                    DropdownMenuItem(
+                                                        text = { Text(text = model) },
+                                                        onClick = {
+                                                            modelNameInput = model
+                                                            isModelDropdownExpanded = false
+                                                            AiConfigManager.saveCustomConfig(context, endpointUrl, apiKeyInput, modelNameInput)
+                                                        }
+                                                    )
+                                                }
+                                            }
                                         }
-
-                                        Spacer(modifier = Modifier.height(12.dp))
+                                    } else {
+                                        OutlinedTextField(
+                                            value = modelNameInput,
+                                            onValueChange = { modelNameInput = it },
+                                            label = { Text("Model ID / Name") },
+                                            placeholder = { Text(modelPlaceholder, style = CaptionStyle) },
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedContainerColor = colors.bgCanvas,
+                                                unfocusedContainerColor = colors.bgCanvas
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("custom_model_name_input")
+                                        )
                                     }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
 
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,

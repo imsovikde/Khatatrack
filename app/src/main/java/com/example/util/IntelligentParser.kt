@@ -59,31 +59,34 @@ object IntelligentParser {
         }
 
         val isAiParsingEnabled = AiConfigManager.getUseAiParsing(context)
+        val provider = AiConfigManager.getProvider(context)
         val apiKey = AiConfigManager.getCustomApiKey(context).ifBlank { AiConfigManager.getEffectiveGeminiKey() }
+        val customEndpoint = AiConfigManager.getCustomEndpoint(context)
+        val customModel = AiConfigManager.getCustomModel(context)
 
         if (isAiParsingEnabled && apiKey.isNotBlank()) {
             try {
-                // Hard 3-second timeout requirement for optional Gemini call
-                val geminiRes = withTimeout(3000L) {
-                    parseWithGeminiApi(apiKey, trimmed)
+                val aiResult = withTimeout(4000L) {
+                    if (provider == AiProvider.GEMINI || (customEndpoint.isBlank() && provider == AiProvider.GEMINI)) {
+                        parseWithGeminiApi(apiKey, trimmed)
+                    } else {
+                        parseWithOpenAiCompatibleApi(provider, customEndpoint.ifBlank { null }, apiKey, customModel.ifBlank { null }, trimmed)
+                    }
                 }
-                if (geminiRes != null) {
-                    // Match contact name from Gemini result against local contacts if needed
-                    val matchedContactName = geminiRes.contactName?.let { cName ->
+                if (aiResult != null) {
+                    val matchedContactName = aiResult.contactName?.let { cName ->
                         matchContactFuzzy(cName, activeContacts) ?: cName
                     }
-                    return@withContext geminiRes.copy(
+                    return@withContext aiResult.copy(
                         contactName = matchedContactName,
-                        parsedSource = "GEMINI"
+                        parsedSource = provider.displayName
                     )
                 }
             } catch (e: Exception) {
-                // Silent fallback to local parser
                 e.printStackTrace()
             }
         }
 
-        // Mandatory Baseline Local NLP Pipeline
         return@withContext parseInputTextLocal(trimmed, activeContacts)
     }
 
@@ -268,11 +271,12 @@ object IntelligentParser {
 
     /**
      * Parse voice/typed text for personal income/expense (not ledger transactions).
+     * Non-suspend version for direct UI thread use (local only).
      */
     fun parseForIncomeExpense(rawText: String): ParsedIncomeExpenseResult {
         val lower = rawText.lowercase()
 
-        // Determine type
+        // Determine type — explicit keyword-based detection
         val expenseKeywords = listOf(
             "spent", "paid", "bought", "purchased", "purchase", "ordered", "shopping",
             "debited", "bill", "fee", "emi", "expense", "kharch", "kharcha"
@@ -283,8 +287,10 @@ object IntelligentParser {
         )
         val isExpense = expenseKeywords.any { lower.contains(it) }
         val isIncome = incomeKeywords.any { lower.contains(it) }
+        // Income keyword wins over expense if both detected (avoid "got salary" → EXPENSE)
         val type = when {
             isIncome && !isExpense -> IncomeExpenseEntry.TYPE_INCOME
+            isIncome && isExpense -> IncomeExpenseEntry.TYPE_INCOME // income words take priority
             else -> IncomeExpenseEntry.TYPE_EXPENSE
         }
 
@@ -298,16 +304,17 @@ object IntelligentParser {
 
         // Category from keywords
         val category = when {
-            lower.contains("food") || lower.contains("lunch") || lower.contains("dinner") || lower.contains("breakfast") -> "Food"
-            lower.contains("petrol") || lower.contains("fuel") || lower.contains("taxi") || lower.contains("auto") || lower.contains("travel") -> "Transport"
-            lower.contains("salary") || lower.contains("bonus") || lower.contains("earning") -> "Salary"
-            lower.contains("shopping") || lower.contains("cloth") || lower.contains("shoe") -> "Shopping"
-            lower.contains("medical") || lower.contains("doctor") || lower.contains("medicine") || lower.contains("hospital") -> "Health"
-            lower.contains("rent") || lower.contains("electricity") || lower.contains("water") || lower.contains("bill") -> "Bills"
+            lower.contains("food") || lower.contains("lunch") || lower.contains("dinner") || lower.contains("breakfast") || lower.contains("restaurant") -> "Food"
+            lower.contains("petrol") || lower.contains("fuel") || lower.contains("taxi") || lower.contains("auto") || lower.contains("travel") || lower.contains("uber") || lower.contains("ola") -> "Transport"
+            lower.contains("salary") || lower.contains("bonus") || lower.contains("earning") || lower.contains("paycheck") -> "Salary"
+            lower.contains("shopping") || lower.contains("cloth") || lower.contains("shoe") || lower.contains("amazon") || lower.contains("flipkart") -> "Shopping"
+            lower.contains("medical") || lower.contains("doctor") || lower.contains("medicine") || lower.contains("hospital") || lower.contains("pharmacy") -> "Health"
+            lower.contains("rent") || lower.contains("electricity") || lower.contains("water") || lower.contains("internet") -> "Bills"
             lower.contains("emi") || lower.contains("loan") -> "Loan/EMI"
             lower.contains("refund") || lower.contains("cashback") -> "Refund"
-            lower.contains("invest") || lower.contains("mutual fund") || lower.contains("stock") -> "Investment"
-            else -> "General"
+            lower.contains("invest") || lower.contains("mutual fund") || lower.contains("stock") || lower.contains("sip") -> "Investment"
+            lower.contains("freelance") || lower.contains("client") || lower.contains("project") -> "Freelance"
+            else -> if (type == IncomeExpenseEntry.TYPE_INCOME) "Income" else "General"
         }
 
         // Payment mode
@@ -330,10 +337,10 @@ object IntelligentParser {
     }
 
     /**
-     * Gemini API Free Tier Structured Extraction (Q.4)
+     * Gemini API Structured Extraction
      */
     private fun parseWithGeminiApi(apiKey: String, text: String): ParsedTransactionResult? {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey"
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey"
 
         val systemInstruction = """
             You are a strict financial transaction parser. Parse the user's spoken/typed text into JSON with keys:
@@ -372,40 +379,101 @@ object IntelligentParser {
         val parts = contentObj?.optJSONArray("parts")
         val rawJsonText = parts?.optJSONObject(0)?.optString("text")?.trim() ?: return null
 
-        // Clean markdown backticks if present
-        val cleanJson = rawJsonText
-            .removePrefix("```json")
-            .removePrefix("```")
-            .removeSuffix("```")
-            .trim()
+        return parseTransactionJson(rawJsonText, text)
+    }
 
-        val resultJson = JSONObject(cleanJson)
-
-        val intent = resultJson.optString("intent", Transaction.TYPE_YOU_GAVE)
-        val amount = if (resultJson.has("amount") && !resultJson.isNull("amount")) resultJson.optDouble("amount") else null
-        val contactName = if (resultJson.has("contactName") && !resultJson.isNull("contactName")) resultJson.optString("contactName") else null
-        val paymentMode = resultJson.optString("paymentMode", "Cash")
-        val note = resultJson.optString("note", text)
-        val daysFromNow = if (resultJson.has("dueDateDaysFromNow") && !resultJson.isNull("dueDateDaysFromNow")) resultJson.optInt("dueDateDaysFromNow") else null
-        val refNumber = if (resultJson.has("referenceNumber") && !resultJson.isNull("referenceNumber")) resultJson.optString("referenceNumber") else null
-
-        var dueDateMillis: Long? = null
-        if (daysFromNow != null && daysFromNow >= 0) {
-            val cal = Calendar.getInstance()
-            cal.add(Calendar.DAY_OF_YEAR, daysFromNow)
-            dueDateMillis = cal.timeInMillis
+    /**
+     * OpenAI-compatible API call (works for OpenAI, Nvidia NIM, local LLMs, Anthropic-compatible)
+     */
+    private fun parseWithOpenAiCompatibleApi(
+        provider: AiProvider,
+        customEndpoint: String?,
+        apiKey: String,
+        modelOverride: String?,
+        text: String
+    ): ParsedTransactionResult? {
+        val endpoint = when {
+            !customEndpoint.isNullOrBlank() -> customEndpoint
+            provider == AiProvider.NVIDIA_NIM -> "https://integrate.api.nvidia.com/v1/chat/completions"
+            provider == AiProvider.ANTHROPIC -> "https://api.anthropic.com/v1/messages"
+            else -> "https://api.openai.com/v1/chat/completions"
+        }
+        val model = when {
+            !modelOverride.isNullOrBlank() -> modelOverride
+            provider == AiProvider.NVIDIA_NIM -> "nvidia/llama-3.1-nemotron-70b-instruct"
+            provider == AiProvider.ANTHROPIC -> "claude-3-haiku-20240307"
+            else -> "gpt-4o-mini"
         }
 
-        return ParsedTransactionResult(
-            intent = if (intent == "YOU_GOT") Transaction.TYPE_YOU_GOT else Transaction.TYPE_YOU_GAVE,
-            amount = amount,
-            contactName = contactName,
-            paymentMode = paymentMode,
-            note = note,
-            collectionDueDate = dueDateMillis,
-            referenceNumber = refNumber,
-            parsedSource = "GEMINI"
-        )
+        val systemPrompt = """
+            You are a strict financial transaction parser. Parse the user's spoken/typed text into JSON with keys:
+            {"intent":"YOU_GAVE" or "YOU_GOT","amount":number or null,"contactName":string or null,"paymentMode":"Cash"|"UPI"|"Bank Transfer"|"Cheque"|"Card"|"Other","note":string,"dueDateDaysFromNow":number or null,"referenceNumber":string or null}
+            Respond with valid JSON only.
+        """.trimIndent()
+
+        val jsonBody = JSONObject().apply {
+            put("model", model)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) })
+                put(JSONObject().apply { put("role", "user"); put("content", text) })
+            })
+            put("temperature", 0.1)
+        }
+
+        val requestBuilder = Request.Builder()
+            .url(endpoint)
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .post(jsonBody.toString().toRequestBody("application/json".toMediaType()))
+
+        val response = httpClient.newCall(requestBuilder.build()).execute()
+        if (!response.isSuccessful) return null
+
+        val bodyStr = response.body?.string() ?: return null
+        val jsonObj = JSONObject(bodyStr)
+        val choices = jsonObj.optJSONArray("choices") ?: return null
+        val messageContent = choices.optJSONObject(0)?.optJSONObject("message")?.optString("content")?.trim() ?: return null
+
+        return parseTransactionJson(messageContent, text)
+    }
+
+    private fun parseTransactionJson(rawJsonText: String, fallbackText: String): ParsedTransactionResult? {
+        return try {
+            val cleanJson = rawJsonText
+                .removePrefix("```json")
+                .removePrefix("```")
+                .removeSuffix("```")
+                .trim()
+
+            val resultJson = JSONObject(cleanJson)
+            val intent = resultJson.optString("intent", Transaction.TYPE_YOU_GAVE)
+            val amount = if (resultJson.has("amount") && !resultJson.isNull("amount")) resultJson.optDouble("amount") else null
+            val contactName = if (resultJson.has("contactName") && !resultJson.isNull("contactName")) resultJson.optString("contactName") else null
+            val paymentMode = resultJson.optString("paymentMode", "Cash")
+            val note = resultJson.optString("note", fallbackText)
+            val daysFromNow = if (resultJson.has("dueDateDaysFromNow") && !resultJson.isNull("dueDateDaysFromNow")) resultJson.optInt("dueDateDaysFromNow") else null
+            val refNumber = if (resultJson.has("referenceNumber") && !resultJson.isNull("referenceNumber")) resultJson.optString("referenceNumber") else null
+
+            var dueDateMillis: Long? = null
+            if (daysFromNow != null && daysFromNow >= 0) {
+                val cal = Calendar.getInstance()
+                cal.add(Calendar.DAY_OF_YEAR, daysFromNow)
+                dueDateMillis = cal.timeInMillis
+            }
+
+            ParsedTransactionResult(
+                intent = if (intent == "YOU_GOT") Transaction.TYPE_YOU_GOT else Transaction.TYPE_YOU_GAVE,
+                amount = amount,
+                contactName = contactName,
+                paymentMode = paymentMode,
+                note = note,
+                collectionDueDate = dueDateMillis,
+                referenceNumber = refNumber,
+                parsedSource = "AI"
+            )
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun matchContactFuzzy(targetName: String, contacts: List<Contact>): String? {

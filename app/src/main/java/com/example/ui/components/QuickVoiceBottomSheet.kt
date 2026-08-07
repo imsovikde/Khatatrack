@@ -575,6 +575,24 @@ fun QuickVoiceBottomSheet(
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
+            // Reference / Order ID field
+            OutlinedTextField(
+                value = referenceNumberText,
+                onValueChange = { referenceNumberText = it },
+                label = { Text("Reference / Order ID (optional)", style = CaptionStyle) },
+                placeholder = { Text("e.g., UTR129048, ORD-5678", style = CaptionStyle) },
+                textStyle = BodyStyle.copy(color = colors.textPrimary),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = colors.textPrimary,
+                    unfocusedBorderColor = colors.divider
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("ref_id_input")
+            )
+
+            Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+
             // Collection Due Date Badge if present
             if (collectionDueDate != null) {
                 Row(
