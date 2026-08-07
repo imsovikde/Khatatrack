@@ -251,7 +251,7 @@ fun ContactLedgerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colors.bgSurface)
-                    .padding(horizontal = KhataTheme.spacing.md, vertical = KhataTheme.spacing.sm),
+                    .padding(horizontal = KhataTheme.spacing.md, vertical = KhataTheme.spacing.md),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Row 1: Avatar + Name + Mobile
@@ -460,6 +460,11 @@ fun ContactLedgerScreen(
                 Text(
                     text = "${tx.type} ${CurrencyFormatter.formatRupee(tx.amount)} on ${DateTimeUtils.formatDate(tx.transactionDate)}",
                     style = BodyStyle,
+                    color = colors.textSecondary
+                )
+                Text(
+                    text = "Txn ID: #${tx.id}",
+                    style = CaptionStyle,
                     color = colors.textSecondary
                 )
                 Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
