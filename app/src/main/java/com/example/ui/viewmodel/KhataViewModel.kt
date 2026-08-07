@@ -10,6 +10,7 @@ import com.example.data.model.Reminder
 import com.example.data.model.Transaction
 import com.example.data.repository.KhataRepository
 import com.example.data.repository.SummaryTotals
+import com.example.util.AppPreferencesManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -93,6 +94,17 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
             val retentionDays = com.example.util.TrashRetentionManager.getRetentionDays(application)
             repository.purgeOldTrash(retentionDays)
             com.example.util.TrashRetentionManager.scheduleDailyCleanupWork(application)
+        }
+        // Restore persisted preferences from DataStore
+        viewModelScope.launch {
+            AppPreferencesManager.isDarkMode(application).collect { persisted ->
+                _uiState.value = _uiState.value.copy(isDarkMode = persisted)
+            }
+        }
+        viewModelScope.launch {
+            AppPreferencesManager.isAppLockEnabled(application).collect { persisted ->
+                _uiState.value = _uiState.value.copy(isAppLockEnabled = persisted)
+            }
         }
     }
 
@@ -308,10 +320,16 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleDarkMode(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(isDarkMode = enabled)
+        viewModelScope.launch {
+            AppPreferencesManager.setDarkMode(getApplication(), enabled)
+        }
     }
 
     fun toggleAppLock(enabled: Boolean) {
         _uiState.value = _uiState.value.copy(isAppLockEnabled = enabled)
+        viewModelScope.launch {
+            AppPreferencesManager.setAppLockEnabled(getApplication(), enabled)
+        }
     }
 
     fun unlockApp() {
