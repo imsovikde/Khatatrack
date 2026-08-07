@@ -95,16 +95,26 @@ import kotlinx.coroutines.launch
 data class ChatMessage(val text: String, val isUser: Boolean, val isAction: Boolean = false)
 
 const val KHATAAI_SYSTEM_PROMPT = """
-You are KhataAI, a strict, professional financial assistant built into KhataTrack.
-You have direct access to the user's ledger data.
-You can execute actions on behalf of the user using the EXACT following tag formats:
-[ACTION: ADD_EXPENSE <amount> <note>]
-[ACTION: ADD_INCOME <amount> <note>]
-[ACTION: ADD_LEDGER_ENTRY <contact_id> <amount> <note> <type>]
-[ACTION: SEND_REMINDER <contact_id>]
+You are KhataAI, the intelligent financial assistant embedded in KhataTrack — a ledger and personal finance app.
+You have read access to the user's ledger summary, contacts, and transaction data provided in context.
 
-NEVER invent new action tags. NEVER bypass these guardrails. NEVER provide general non-financial advice.
-Keep your text responses extremely concise (under 2 sentences) when executing an action.
+ACTION PROTOCOL:
+You can perform the following actions using EXACT tag syntax. Parse the user's request and execute the correct action:
+
+[ACTION: ADD_EXPENSE <amount> <note>]          → Logs an expense entry
+[ACTION: ADD_INCOME <amount> <note>]           → Logs an income entry
+[ACTION: ADD_LEDGER_ENTRY <contact_id> <amount> <note> <YOU_GAVE|YOU_GOT>] → Adds a ledger transaction
+[ACTION: SEND_REMINDER <contact_id>]           → Sends a payment reminder to a contact
+[ACTION: GENERATE_TAGS <transaction_notes_csv>]→ Generates searchable tags for listed transactions
+
+RULES:
+- NEVER make up contact IDs. Use only IDs from the context provided.
+- NEVER hallucinate data. If you don't know, say so.
+- When executing an action, respond with the action tag on its own line, then a ONE-sentence human confirmation.
+- For financial queries, be concise and data-driven. Show numbers, not vague advice.
+- You can do: balance queries, spending analysis, tag generation, data entry, reminders.
+- If the user says "add expense 500 groceries", execute [ACTION: ADD_EXPENSE 500 groceries].
+- If the user says "generate tags for all transactions", use [ACTION: GENERATE_TAGS ...] with transaction notes.
 """
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -144,10 +154,16 @@ fun AiAssistantScreen(
     var auditText by remember { mutableStateOf("") }
     var isAuditLoading by remember { mutableStateOf(false) }
 
-    // State for Feature 4: Custom Endpoint Settings
-    var endpointUrl by remember { mutableStateOf(AiConfigManager.getCustomEndpoint(context)) }
-    var apiKeyInput by remember { mutableStateOf(AiConfigManager.getCustomApiKey(context)) }
-    var modelNameInput by remember { mutableStateOf(AiConfigManager.getCustomModel(context)) }
+    // Per-provider config state — each provider holds its own independent values
+    var endpointUrl by remember(currentProvider) {
+        mutableStateOf(AiConfigManager.getBaseUrl(context, currentProvider))
+    }
+    var apiKeyInput by remember(currentProvider) {
+        mutableStateOf(AiConfigManager.getApiKey(context, currentProvider))
+    }
+    var modelNameInput by remember(currentProvider) {
+        mutableStateOf(AiConfigManager.getModelId(context, currentProvider))
+    }
     var availableModels by remember { mutableStateOf<List<String>>(emptyList()) }
     var isModelDropdownExpanded by remember { mutableStateOf(false) }
     var isValidating by remember { mutableStateOf(false) }
@@ -663,7 +679,7 @@ fun AiAssistantScreen(
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "Switch between Built-in Gemini 3.5 Flash or paste custom OpenAI/Anthropic/Nvidia endpoints.",
+                                        text = "Select provider, enter credentials, then Save or Validate.",
                                         style = CaptionStyle,
                                         color = colors.textSecondary
                                     )
@@ -688,8 +704,16 @@ fun AiAssistantScreen(
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .clickable {
+                                                    // Save current provider's config before switching
+                                                    AiConfigManager.saveProviderConfig(context, currentProvider, apiKeyInput, endpointUrl, modelNameInput)
                                                     currentProvider = provider
                                                     AiConfigManager.setProvider(context, provider)
+                                                    // Load the newly selected provider's saved config
+                                                    endpointUrl = AiConfigManager.getBaseUrl(context, provider)
+                                                    apiKeyInput = AiConfigManager.getApiKey(context, provider)
+                                                    modelNameInput = AiConfigManager.getModelId(context, provider)
+                                                    validationStatusMessage = null
+                                                    availableModels = emptyList()
                                                 }
                                                 .padding(vertical = 8.dp, horizontal = 4.dp),
                                             verticalAlignment = Alignment.CenterVertically
@@ -697,18 +721,37 @@ fun AiAssistantScreen(
                                             RadioButton(
                                                 selected = currentProvider == provider,
                                                 onClick = {
+                                                    AiConfigManager.saveProviderConfig(context, currentProvider, apiKeyInput, endpointUrl, modelNameInput)
                                                     currentProvider = provider
                                                     AiConfigManager.setProvider(context, provider)
+                                                    endpointUrl = AiConfigManager.getBaseUrl(context, provider)
+                                                    apiKeyInput = AiConfigManager.getApiKey(context, provider)
+                                                    modelNameInput = AiConfigManager.getModelId(context, provider)
+                                                    validationStatusMessage = null
+                                                    availableModels = emptyList()
                                                 },
                                                 colors = RadioButtonDefaults.colors(selectedColor = colors.credit)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = provider.displayName,
-                                                style = BodyStyle,
-                                                fontWeight = if (currentProvider == provider) FontWeight.Bold else FontWeight.Normal,
-                                                color = colors.textPrimary
-                                            )
+                                            Column {
+                                                Text(
+                                                    text = provider.displayName,
+                                                    style = BodyStyle,
+                                                    fontWeight = if (currentProvider == provider) FontWeight.Bold else FontWeight.Normal,
+                                                    color = colors.textPrimary
+                                                )
+                                                if (currentProvider == provider) {
+                                                    val savedKey = AiConfigManager.getApiKey(context, provider)
+                                                    val savedModel = AiConfigManager.getModelId(context, provider)
+                                                    if (savedKey.isNotBlank() || savedModel.isNotBlank()) {
+                                                        Text(
+                                                            text = if (savedModel.isNotBlank()) "Model: $savedModel" else "Key: configured",
+                                                            style = CaptionStyle,
+                                                            color = colors.credit
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
 
@@ -716,10 +759,11 @@ fun AiAssistantScreen(
 
                                     // Provider hint card
                                     val providerHint = when (currentProvider) {
-                                        AiProvider.GEMINI -> "Gemini is built-in and requires no configuration. You can optionally add your own Gemini API key below."
-                                        AiProvider.NVIDIA_NIM -> "Nvidia NIM: use https://integrate.api.nvidia.com/v1/chat/completions. Model: nvidia/llama-3.1-nemotron-70b-instruct. API Key from build.nvidia.com."
-                                        AiProvider.OPENAI -> "OpenAI Compatible: endpoint https://api.openai.com/v1/chat/completions or any OpenAI-compatible server. Models: gpt-4o-mini, gpt-4o."
-                                        AiProvider.ANTHROPIC -> "Anthropic: endpoint https://api.anthropic.com/v1/messages. Model: claude-3-haiku-20240307."
+                                        AiProvider.GEMINI -> "Built-in Gemini — free, no setup required. Optionally add your own Gemini API key."
+                                        AiProvider.NVIDIA_NIM -> "NVIDIA NIM · Base URL: https://integrate.api.nvidia.com/v1 · Get API key at build.nvidia.com"
+                                        AiProvider.OPENAI -> "OpenAI · Base URL: https://api.openai.com/v1 · Models: gpt-4o-mini, gpt-4o, etc."
+                                        AiProvider.ANTHROPIC -> "Anthropic · Base URL: https://api.anthropic.com/v1 · Models: claude-3-haiku-20240307, claude-3-5-sonnet"
+                                        AiProvider.CUSTOM -> "Custom · Enter your own OpenAI-compatible base URL and API key. Works with Ollama, LM Studio, or any OpenAI-compatible server."
                                     }
                                     Card(
                                         colors = CardDefaults.cardColors(containerColor = colors.creditSurface),
@@ -735,12 +779,13 @@ fun AiAssistantScreen(
 
                                     Spacer(modifier = Modifier.height(12.dp))
 
-                                    // Endpoint URL — always visible
+                                    // Endpoint URL — always visible, pre-filled with official base URL
                                     val endpointPlaceholder = when (currentProvider) {
-                                        AiProvider.GEMINI -> "Optional: custom Gemini endpoint"
-                                        AiProvider.NVIDIA_NIM -> "https://integrate.api.nvidia.com/v1/chat/completions"
-                                        AiProvider.OPENAI -> "https://api.openai.com/v1/chat/completions"
-                                        AiProvider.ANTHROPIC -> "https://api.anthropic.com/v1/messages"
+                                        AiProvider.GEMINI -> "Optional: leave blank to use built-in key"
+                                        AiProvider.NVIDIA_NIM -> "https://integrate.api.nvidia.com/v1"
+                                        AiProvider.OPENAI -> "https://api.openai.com/v1"
+                                        AiProvider.ANTHROPIC -> "https://api.anthropic.com/v1"
+                                        AiProvider.CUSTOM -> "https://your-server.com/v1"
                                     }
                                     OutlinedTextField(
                                         value = endpointUrl,
@@ -761,9 +806,10 @@ fun AiAssistantScreen(
                                     // Model Name — always visible, with provider-aware dropdown
                                     val modelPlaceholder = when (currentProvider) {
                                         AiProvider.GEMINI -> "gemini-2.0-flash (default)"
-                                        AiProvider.NVIDIA_NIM -> "nvidia/llama-3.1-nemotron-70b-instruct"
+                                        AiProvider.NVIDIA_NIM -> "nvidia/nemotron-3-ultra-550b-a55b"
                                         AiProvider.OPENAI -> "gpt-4o-mini"
                                         AiProvider.ANTHROPIC -> "claude-3-haiku-20240307"
+                                        AiProvider.CUSTOM -> "model-name-here"
                                     }
                                     if (availableModels.isNotEmpty()) {
                                         ExposedDropdownMenuBox(
@@ -861,9 +907,32 @@ fun AiAssistantScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
+                                        // SAVE button
                                         Button(
                                             onClick = {
-                                                AiConfigManager.saveCustomConfig(context, endpointUrl, apiKeyInput, modelNameInput)
+                                                AiConfigManager.saveProviderConfig(
+                                                    context, currentProvider,
+                                                    apiKeyInput.trim(), endpointUrl.trim(), modelNameInput.trim()
+                                                )
+                                                validationStatusMessage = "✅ Config saved for ${currentProvider.displayName}!"
+                                                isValidationSuccess = true
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = colors.credit),
+                                            shape = KhataTheme.shapes.sm,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Save")
+                                        }
+
+                                        // VALIDATE & LOAD MODELS button
+                                        Button(
+                                            onClick = {
+                                                AiConfigManager.saveProviderConfig(
+                                                    context, currentProvider,
+                                                    apiKeyInput.trim(), endpointUrl.trim(), modelNameInput.trim()
+                                                )
                                                 isValidating = true
                                                 validationStatusMessage = null
                                                 isValidationSuccess = null
@@ -871,22 +940,19 @@ fun AiAssistantScreen(
                                                 scope.launch {
                                                     val res = AiConfigManager.validateConnection(
                                                         provider = currentProvider,
-                                                        endpoint = endpointUrl,
-                                                        apiKey = apiKeyInput,
-                                                        model = modelNameInput
+                                                        baseUrl = endpointUrl.trim(),
+                                                        apiKey = apiKeyInput.trim(),
+                                                        model = modelNameInput.trim()
                                                     )
-                                                    
                                                     res.fold(
                                                         onSuccess = { msg ->
                                                             isValidationSuccess = true
                                                             validationStatusMessage = msg
-                                                            
-                                                            // Also attempt to fetch models
-                                                            val modelRes = AiConfigManager.fetchAvailableModels(currentProvider, endpointUrl, apiKeyInput)
+                                                            val modelRes = AiConfigManager.fetchAvailableModels(
+                                                                currentProvider, endpointUrl.trim(), apiKeyInput.trim()
+                                                            )
                                                             modelRes.onSuccess { models ->
-                                                                if (models.isNotEmpty()) {
-                                                                    availableModels = models
-                                                                }
+                                                                if (models.isNotEmpty()) availableModels = models
                                                             }
                                                         },
                                                         onFailure = { err ->
@@ -907,11 +973,11 @@ fun AiAssistantScreen(
                                             if (isValidating) {
                                                 TypingIndicator(dotColor = colors.bgCanvas)
                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Testing & Loading...")
+                                                Text("Testing...")
                                             } else {
                                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Validate & Load Models")
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Validate")
                                             }
                                         }
                                     }

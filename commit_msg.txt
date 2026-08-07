@@ -1,0 +1,12 @@
+fix: per-provider AI config, attachment persistence, dark mode flash, tags backup
+
+- AiConfigManager: independent per-provider storage (apiKey, baseUrl, modelId)
+- AiService: NVIDIA NIM + OpenAI + CUSTOM via OpenAI-compat, Anthropic /messages path
+- AiAssistantScreen: per-provider state, CUSTOM provider, Save+Validate buttons,
+  provider switch saves before loading next, base URL hints (not full path)
+- AttachmentManager: new utility persisting content:// URIs to internal storage
+- AddTransactionBottomSheet + AddIncomeExpenseBottomSheet: attachment persistence
+- AppPreferencesManager: SharedPreferences mirror for sync dark mode read + default dark
+- MainActivity: isDarkModeSync() before first compose frame (no more light flash)
+- BackupUtils: tags field included in Transaction and IncomeExpenseEntry backup/restore
+- System prompt: enhanced with full action protocol and GENERATE_TAGS action

@@ -65,6 +65,7 @@ import com.example.util.CurrencyManager
 import com.example.util.IntelligentParser
 import com.example.util.SpeechRecognizerManager
 import com.example.util.TagExtractor
+import com.example.util.AttachmentManager
 import kotlinx.coroutines.launch
 import android.Manifest
 import android.os.Build
@@ -144,7 +145,9 @@ fun AddIncomeExpenseBottomSheet(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            attachmentUri = uri.toString()
+            // Persist to internal storage so it survives app restarts
+            val persisted = AttachmentManager.persist(context, uri)
+            attachmentUri = persisted ?: uri.toString()
         }
     }
 

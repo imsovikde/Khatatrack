@@ -127,6 +127,7 @@ object BackupUtils {
             tObj.put("updatedAt", t.updatedAt)
             tObj.put("isDeleted", t.isDeleted)
             tObj.put("deletedAt", t.deletedAt ?: 0L)
+            tObj.put("tags", t.tags ?: "")
             txArray.put(tObj)
         }
         payloadObj.put("transactions", txArray)
@@ -212,6 +213,7 @@ object BackupUtils {
             ieObj.put("updatedAt", ie.updatedAt)
             ieObj.put("isDeleted", ie.isDeleted)
             ieObj.put("deletedAt", ie.deletedAt ?: 0L)
+            ieObj.put("tags", ie.tags ?: "")
             incArray.put(ieObj)
         }
         payloadObj.put("incomeExpenseEntries", incArray)
@@ -409,7 +411,8 @@ object BackupUtils {
                         createdAt = o.optLong("createdAt"),
                         updatedAt = o.optLong("updatedAt"),
                         isDeleted = o.optBoolean("isDeleted", false),
-                        deletedAt = if (o.has("deletedAt") && o.getLong("deletedAt") != 0L) o.getLong("deletedAt") else null
+                        deletedAt = if (o.has("deletedAt") && o.getLong("deletedAt") != 0L) o.getLong("deletedAt") else null,
+                        tags = o.optString("tags").ifEmpty { null }
                     )
                 )
             }
@@ -508,7 +511,8 @@ object BackupUtils {
                         createdAt = o.optLong("createdAt"),
                         updatedAt = o.optLong("updatedAt"),
                         isDeleted = o.optBoolean("isDeleted", false),
-                        deletedAt = if (o.has("deletedAt") && o.getLong("deletedAt") != 0L) o.getLong("deletedAt") else null
+                        deletedAt = if (o.has("deletedAt") && o.getLong("deletedAt") != 0L) o.getLong("deletedAt") else null,
+                        tags = o.optString("tags").ifEmpty { null }
                     )
                 )
             }

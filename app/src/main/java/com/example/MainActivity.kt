@@ -53,6 +53,7 @@ import com.example.ui.theme.KhataTheme
 import com.example.ui.theme.KhataTrackTheme
 import com.example.ui.viewmodel.KhataViewModel
 import com.example.ui.viewmodel.Screen
+import com.example.util.AppPreferencesManager
 import com.example.util.CurrencyFormatter
 import com.example.util.CurrencyManager
 
@@ -128,7 +129,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            KhataTrackTheme(darkTheme = uiState.isDarkMode) {
+            // Read dark mode synchronously before the first frame so we never flash light theme
+            val initialDark = remember { AppPreferencesManager.isDarkModeSync(this@MainActivity) }
+            val effectiveDarkTheme = if (uiState.isDarkMode != initialDark) uiState.isDarkMode else initialDark
+
+            KhataTrackTheme(darkTheme = effectiveDarkTheme) {
                 if (uiState.isAppLockEnabled && uiState.isAppLocked) {
                     AppLockScreen(
                         onUnlock = { viewModel.unlockApp() },

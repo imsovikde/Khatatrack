@@ -76,6 +76,7 @@ import com.example.ui.theme.TitleStyle
 import com.example.util.CurrencyFormatter
 import com.example.util.DateTimeUtils
 import com.example.util.TagExtractor
+import com.example.util.AttachmentManager
 import java.util.Calendar
 
 import androidx.compose.material.icons.filled.Mic
@@ -139,7 +140,9 @@ fun AddTransactionBottomSheet(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            attachmentPhotoUri = uri.toString()
+            // Persist to internal storage so it survives app restarts
+            val persisted = AttachmentManager.persist(context, uri)
+            attachmentPhotoUri = persisted ?: uri.toString()
         }
     }
     
