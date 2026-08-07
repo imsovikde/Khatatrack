@@ -104,12 +104,7 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = com.example.ui.components.getKhataLogoVector(),
-                            contentDescription = "App Logo",
-                            modifier = Modifier.size(24.dp),
-                            tint = androidx.compose.ui.graphics.Color.Unspecified
-                        )
+                        com.example.ui.components.KhataTrackLogo(height = 32.dp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "KhataTrack",

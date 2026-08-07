@@ -444,6 +444,12 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
 
             // ABOUT GROUP
+            androidx.compose.foundation.layout.Column(
+                modifier = Modifier.fillMaxWidth().padding(top = KhataTheme.spacing.md),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                com.example.ui.components.KhataTrackLogo(height = 40.dp)
+            }
             Text(
                 text = "ABOUT",
                 style = CaptionStyle,

@@ -57,12 +57,7 @@ fun AppLockScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Lock,
-            contentDescription = "Locked",
-            tint = colors.textPrimary,
-            modifier = Modifier.size(64.dp)
-        )
+        com.example.ui.components.KhataTrackLogo(height = 64.dp)
 
         Spacer(modifier = Modifier.height(KhataTheme.spacing.lg))
 
