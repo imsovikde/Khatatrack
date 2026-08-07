@@ -478,6 +478,51 @@ fun QuickVoiceBottomSheet(
                 }
             }
 
+            // Inline "Create as new contact" affordance when no matching contact is found
+            if (selectedContact == null && newContactNameInput.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(KhataTheme.shapes.sm)
+                        .background(colors.credit.copy(alpha = 0.12f))
+                        .clickable {
+                            // Validate & save immediately using the new-contact path
+                            val amount = amountText.toDoubleOrNull()
+                            if (amount != null && amount > 0) {
+                                onAddNewContactAndSave(
+                                    newContactNameInput.trim(),
+                                    currentType,
+                                    amount,
+                                    selectedPaymentMode,
+                                    noteText,
+                                    categoryTagText,
+                                    collectionDueDate,
+                                    referenceNumberText.ifBlank { null }
+                                )
+                            } else {
+                                errorMessage = "Enter a valid amount first"
+                            }
+                        }
+                        .padding(horizontal = KhataTheme.spacing.md, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = colors.credit,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "+ Create \"${newContactNameInput.trim()}\" as new contact & save",
+                        style = LabelStyle.copy(fontWeight = FontWeight.SemiBold),
+                        color = colors.credit
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
             // 4. Payment Mode Chips
