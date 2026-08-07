@@ -21,7 +21,8 @@ class CleanupWorker(
                 reminderDao = db.reminderDao(),
                 traceLogDao = db.traceLogDao(),
                 categoryDao = db.categoryDao(),
-                paymentModeDao = db.paymentModeDao()
+                paymentModeDao = db.paymentModeDao(),
+                incomeExpenseEntryDao = db.incomeExpenseEntryDao()
             )
 
             val retentionDays = TrashRetentionManager.getRetentionDays(applicationContext)

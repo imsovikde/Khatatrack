@@ -43,4 +43,5 @@ object CurrencyFormatter {
     }
 
     fun getActiveCurrencySymbol(): String = activeCurrencySymbol
+    fun getActiveCurrencyCode(): String = activeCurrencyCode
 }

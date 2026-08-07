@@ -41,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Transaction
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.example.ui.components.EmptyState
 import com.example.ui.components.SemanticChip
 import com.example.ui.components.TransactionRow
@@ -54,10 +56,25 @@ import com.example.ui.viewmodel.ReportDateRange
 import com.example.util.CurrencyFormatter
 import com.example.util.ExportUtils
 
+import com.example.data.model.IncomeExpenseEntry
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+
+enum class ReportSource {
+    LEDGER,
+    INCOME_EXPENSE,
+    COMBINED
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportsScreen(
     transactions: List<Transaction>,
+    incomeExpenseEntries: List<IncomeExpenseEntry> = emptyList(),
     selectedRange: ReportDateRange,
     onRangeSelect: (ReportDateRange) -> Unit,
     modifier: Modifier = Modifier
@@ -65,18 +82,26 @@ fun ReportsScreen(
     val colors = KhataTheme.colors
     val context = LocalContext.current
 
-    // Calculate totals for range
-    val (totalGiven, totalGot, net) = remember(transactions) {
-        var given = 0.0
-        var got = 0.0
-        for (tx in transactions) {
-            if (tx.type == Transaction.TYPE_YOU_GOT) {
-                got += tx.amount
-            } else {
-                given += tx.amount
+    var selectedSource by remember { mutableStateOf(ReportSource.COMBINED) }
+
+    // Calculate totals based on selectedSource
+    val (totalGot, totalGiven, net) = remember(transactions, incomeExpenseEntries, selectedSource) {
+        var credit = 0.0
+        var debit = 0.0
+
+        if (selectedSource == ReportSource.LEDGER || selectedSource == ReportSource.COMBINED) {
+            for (tx in transactions) {
+                if (tx.type == Transaction.TYPE_YOU_GOT) credit += tx.amount
+                else debit += tx.amount
             }
         }
-        Triple(given, got, got - given)
+        if (selectedSource == ReportSource.INCOME_EXPENSE || selectedSource == ReportSource.COMBINED) {
+            for (entry in incomeExpenseEntries) {
+                if (entry.type == IncomeExpenseEntry.TYPE_INCOME) credit += entry.amount
+                else debit += entry.amount
+            }
+        }
+        Triple(credit, debit, credit - debit)
     }
 
     Scaffold(
@@ -122,6 +147,40 @@ fun ReportsScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // Source Module Selector (Ledger / Income & Expense / Combined)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
+                    .background(colors.bgSurface, RoundedCornerShape(20.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                ReportSource.values().forEach { source ->
+                    val isSel = selectedSource == source
+                    val label = when (source) {
+                        ReportSource.LEDGER -> "Ledger"
+                        ReportSource.INCOME_EXPENSE -> "Income/Exp"
+                        ReportSource.COMBINED -> "Combined"
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isSel) colors.textPrimary else colors.bgSurface)
+                            .clickable { selectedSource = source }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            style = CaptionStyle.copy(fontWeight = FontWeight.Bold),
+                            color = if (isSel) colors.bgCanvas else colors.textSecondary
+                        )
+                    }
+                }
+            }
+
             // Range selector chips
             Row(
                 modifier = Modifier
@@ -211,172 +270,287 @@ fun ReportsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
-
-            // Custom Compose Bar Chart (Monochrome axis, credit/debit tokens)
-            Card(
-                shape = KhataTheme.shapes.md,
-                colors = CardDefaults.cardColors(containerColor = colors.bgSurface),
-                elevation = CardDefaults.cardElevation(defaultElevation = KhataTheme.elevation.restingCard),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = KhataTheme.spacing.md)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(KhataTheme.spacing.md)
-                ) {
-                    Text(
-                        text = "CASHFLOW COMPARISON",
-                        style = CaptionStyle,
-                        color = colors.textSecondary,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
-
-                    val maxVal = Math.max(totalGiven, totalGot).coerceAtLeast(100.0)
-                    val creditColor = colors.credit
-                    val debitColor = colors.debit
-                    val dividerColor = colors.divider
-
-                    Canvas(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp)
-                    ) {
-                        val canvasWidth = size.width
-                        val canvasHeight = size.height
-
-                        // Baseline
-                        drawLine(
-                            color = dividerColor,
-                            start = Offset(0f, canvasHeight - 1f),
-                            end = Offset(canvasWidth, canvasHeight - 1f),
-                            strokeWidth = 2f
-                        )
-
-                        val barWidth = canvasWidth * 0.25f
-                        val gap = canvasWidth * 0.15f
-
-                        // Given bar
-                        val givenHeight = ((totalGiven / maxVal) * (canvasHeight - 20f)).toFloat()
-                        drawRoundRect(
-                            color = debitColor,
-                            topLeft = Offset(gap, canvasHeight - givenHeight),
-                            size = Size(barWidth, givenHeight),
-                            cornerRadius = CornerRadius(8f, 8f)
-                        )
-
-                        // Got bar
-                        val gotHeight = ((totalGot / maxVal) * (canvasHeight - 20f)).toFloat()
-                        drawRoundRect(
-                            color = creditColor,
-                            topLeft = Offset(gap * 2 + barWidth, canvasHeight - gotHeight),
-                            size = Size(barWidth, gotHeight),
-                            cornerRadius = CornerRadius(8f, 8f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround
-                    ) {
-                        Text(text = "You Gave (Debit)", style = CaptionStyle, color = colors.debit)
-                        Text(text = "You Got (Credit)", style = CaptionStyle, color = colors.credit)
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
-            // CATEGORY DISTRIBUTION CANVAS HORIZONTAL BAR CHART (Part S.4)
+            // Payment mode breakdown
+            val paymentModeAggregates = remember(transactions) {
+                transactions.groupBy { it.paymentMode.ifBlank { "Cash" } }
+                    .map { (mode, list) -> mode to list.sumOf { tx -> tx.amount } }
+                    .sortedByDescending { it.second }
+            }
+
+            // Category breakdown
             val categoryAggregates = remember(transactions) {
                 transactions.groupBy { if (it.categoryTag.isBlank()) "General" else it.categoryTag }
                     .map { (tag, list) -> tag to list.sumOf { tx -> tx.amount } }
                     .sortedByDescending { it.second }
             }
 
-            if (categoryAggregates.isNotEmpty()) {
-                Card(
-                    shape = KhataTheme.shapes.md,
-                    colors = CardDefaults.cardColors(containerColor = colors.bgSurface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = KhataTheme.elevation.restingCard),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = KhataTheme.spacing.md)
-                ) {
-                    Column(
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
+            ) {
+                // 1. CASHFLOW & TREND CHART
+                item {
+                    Card(
+                        shape = KhataTheme.shapes.md,
+                        colors = CardDefaults.cardColors(containerColor = colors.bgSurface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = KhataTheme.elevation.restingCard),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(KhataTheme.spacing.md)
+                            .padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
                     ) {
-                        Text(
-                            text = "SMART CATEGORY BREAKDOWN",
-                            style = CaptionStyle,
-                            color = colors.textSecondary,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(KhataTheme.spacing.md)
+                        ) {
+                            Text(
+                                text = "TREND & CASHFLOW",
+                                style = CaptionStyle,
+                                color = colors.textSecondary,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
 
-                        val maxCatAmount = categoryAggregates.maxOfOrNull { it.second }?.coerceAtLeast(1.0) ?: 1.0
-                        val barColor = colors.textPrimary
-                        val trackColor = colors.divider
+                            val creditColor = colors.credit
+                            val debitColor = colors.debit
+                            val dividerColor = colors.divider
 
-                        categoryAggregates.take(5).forEach { (tag, amount) ->
-                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                            Canvas(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(140.dp)
+                            ) {
+                                val canvasW = size.width
+                                val canvasH = size.height
+
+                                // Draw baseline
+                                drawLine(
+                                    color = dividerColor,
+                                    start = Offset(0f, canvasH - 10f),
+                                    end = Offset(canvasW, canvasH - 10f),
+                                    strokeWidth = 2f
+                                )
+
+                                if (transactions.isNotEmpty()) {
+                                    val sorted = transactions.sortedBy { it.transactionDate }
+                                    val count = sorted.size.coerceAtLeast(2)
+                                    val stepX = canvasW / (count - 1)
+                                    val maxAmt = sorted.maxOf { it.amount }.coerceAtLeast(1.0)
+
+                                    val creditPath = Path()
+                                    val debitPath = Path()
+
+                                    sorted.forEachIndexed { index, tx ->
+                                        val x = index * stepX
+                                        val y = canvasH - 10f - ((tx.amount / maxAmt) * (canvasH - 30f)).toFloat()
+
+                                        if (tx.type == Transaction.TYPE_YOU_GOT) {
+                                            if (creditPath.isEmpty) creditPath.moveTo(x, y) else creditPath.lineTo(x, y)
+                                        } else {
+                                            if (debitPath.isEmpty) debitPath.moveTo(x, y) else debitPath.lineTo(x, y)
+                                        }
+                                    }
+
+                                    if (!creditPath.isEmpty) {
+                                        drawPath(creditPath, color = creditColor, style = Stroke(width = 4f))
+                                    }
+                                    if (!debitPath.isEmpty) {
+                                        drawPath(debitPath, color = debitColor, style = Stroke(width = 4f))
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            // Accessible Data Table
+                            Text("Data Table: Cashflow Summary", style = CaptionStyle.copy(fontWeight = FontWeight.Bold), color = colors.textPrimary)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("You Gave (Debit)", style = BodyStyle, color = colors.debit)
+                                Text(CurrencyFormatter.formatRupee(totalGiven), style = BodyStyle, color = colors.debit, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("You Got (Credit)", style = BodyStyle, color = colors.credit)
+                                Text(CurrencyFormatter.formatRupee(totalGot), style = BodyStyle, color = colors.credit, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // 2. CATEGORY BREAKDOWN (DONUT / PIE CHART VIA Canvas drawArc)
+                if (categoryAggregates.isNotEmpty()) {
+                    item {
+                        Card(
+                            shape = KhataTheme.shapes.md,
+                            colors = CardDefaults.cardColors(containerColor = colors.bgSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = KhataTheme.elevation.restingCard),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(KhataTheme.spacing.md)
+                            ) {
+                                Text(
+                                    text = "CATEGORY DONUT BREAKDOWN",
+                                    style = CaptionStyle,
+                                    color = colors.textSecondary,
+                                    letterSpacing = 1.sp
+                                )
+                                Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+
+                                val totalCatSum = categoryAggregates.sumOf { it.second }.coerceAtLeast(1.0)
+                                val arcColors = listOf(colors.credit, colors.debit, colors.textPrimary, colors.textSecondary)
+
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(text = "#$tag", style = BodyStyle.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold), color = colors.textPrimary)
-                                    Text(text = CurrencyFormatter.formatRupee(amount), style = CaptionStyle, color = colors.textSecondary)
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Canvas(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(10.dp)
-                                ) {
-                                    val canvasW = size.width
-                                    val canvasH = size.height
-                                    val barW = ((amount / maxCatAmount) * canvasW).toFloat()
+                                    Canvas(
+                                        modifier = Modifier
+                                            .size(110.dp)
+                                            .padding(8.dp)
+                                    ) {
+                                        var startAngle = -90f
+                                        categoryAggregates.take(4).forEachIndexed { i, (tag, amt) ->
+                                            val sweep = ((amt / totalCatSum) * 360f).toFloat()
+                                            drawArc(
+                                                color = arcColors[i % arcColors.size],
+                                                startAngle = startAngle,
+                                                sweepAngle = sweep,
+                                                useCenter = false,
+                                                style = Stroke(width = 24f)
+                                            )
+                                            startAngle += sweep
+                                        }
+                                    }
 
-                                    // Background Track
-                                    drawRoundRect(
-                                        color = trackColor,
-                                        size = Size(canvasW, canvasH),
-                                        cornerRadius = CornerRadius(4f, 4f)
-                                    )
-                                    // Filled Bar
-                                    drawRoundRect(
-                                        color = barColor,
-                                        size = Size(barW, canvasH),
-                                        cornerRadius = CornerRadius(4f, 4f)
-                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        categoryAggregates.take(4).forEachIndexed { i, (tag, amt) ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text("#$tag", style = CaptionStyle, color = arcColors[i % arcColors.size], fontWeight = FontWeight.Bold)
+                                                Text(CurrencyFormatter.formatRupee(amt), style = CaptionStyle, color = colors.textPrimary)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("Data Table: Category Totals", style = CaptionStyle.copy(fontWeight = FontWeight.Bold), color = colors.textPrimary)
+                                categoryAggregates.forEach { (tag, amt) ->
+                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("#$tag", style = BodyStyle, color = colors.textPrimary)
+                                        Text(CurrencyFormatter.formatRupee(amt), style = BodyStyle, color = colors.textSecondary)
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(KhataTheme.spacing.md))
+                // 3. PAYMENT MODE DISTRIBUTION BAR CHART
+                if (paymentModeAggregates.isNotEmpty()) {
+                    item {
+                        Card(
+                            shape = KhataTheme.shapes.md,
+                            colors = CardDefaults.cardColors(containerColor = colors.bgSurface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = KhataTheme.elevation.restingCard),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = KhataTheme.spacing.md, vertical = 6.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(KhataTheme.spacing.md)
+                            ) {
+                                Text(
+                                    text = "PAYMENT MODE DISTRIBUTION",
+                                    style = CaptionStyle,
+                                    color = colors.textSecondary,
+                                    letterSpacing = 1.sp
+                                )
+                                Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
 
-            // Transaction list
-            if (transactions.isEmpty()) {
-                EmptyState(
-                    message = "No transactions in this period",
-                    subMessage = "Try changing the range filter above.",
-                    modifier = Modifier.weight(1f)
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                ) {
+                                val maxModeAmt = paymentModeAggregates.maxOfOrNull { it.second }?.coerceAtLeast(1.0) ?: 1.0
+                                val barColor = colors.textPrimary
+                                val trackColor = colors.divider
+
+                                paymentModeAggregates.forEach { (mode, amt) ->
+                                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(text = mode, style = BodyStyle.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold), color = colors.textPrimary)
+                                            Text(text = CurrencyFormatter.formatRupee(amt), style = CaptionStyle, color = colors.textSecondary)
+                                        }
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Canvas(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(8.dp)
+                                        ) {
+                                            val canvasW = size.width
+                                            val canvasH = size.height
+                                            val barW = ((amt / maxModeAmt) * canvasW).toFloat()
+
+                                            drawRoundRect(
+                                                color = trackColor,
+                                                size = Size(canvasW, canvasH),
+                                                cornerRadius = CornerRadius(4f, 4f)
+                                            )
+                                            drawRoundRect(
+                                                color = barColor,
+                                                size = Size(barW, canvasH),
+                                                cornerRadius = CornerRadius(4f, 4f)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("Data Table: Payment Modes", style = CaptionStyle.copy(fontWeight = FontWeight.Bold), color = colors.textPrimary)
+                                paymentModeAggregates.forEach { (mode, amt) ->
+                                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(mode, style = BodyStyle, color = colors.textPrimary)
+                                        Text(CurrencyFormatter.formatRupee(amt), style = BodyStyle, color = colors.textSecondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 4. TRANSACTIONS HEADER
+                item {
+                    Text(
+                        text = "PERIOD TRANSACTIONS (${transactions.size})",
+                        style = CaptionStyle.copy(fontWeight = FontWeight.Bold),
+                        color = colors.textSecondary,
+                        modifier = Modifier.padding(horizontal = KhataTheme.spacing.md, vertical = 8.dp)
+                    )
+                }
+
+                if (transactions.isEmpty()) {
+                    item {
+                        EmptyState(
+                            message = "No transactions in this period",
+                            subMessage = "Try changing the range filter above.",
+                            modifier = Modifier.padding(24.dp)
+                        )
+                    }
+                } else {
                     items(transactions, key = { it.id }) { tx ->
                         TransactionRow(
                             transaction = tx,

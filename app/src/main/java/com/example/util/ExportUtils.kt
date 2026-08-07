@@ -27,7 +27,7 @@ object ExportUtils {
             val file = File(context.cacheDir, fileName)
             val writer = FileWriter(file)
 
-            writer.append("Date,Time,Contact,Type,Amount ($currencySymbol),Payment Mode,Reference Number,Note,Running Balance ($currencySymbol)\n")
+            writer.append("Date,Time,Contact,Type,Amount ($currencySymbol),Payment Mode,Reference Number,Note,Has Image,Running Balance ($currencySymbol)\n")
 
             var runningBalance = 0.0
             val sortedTxs = transactions.sortedBy { it.transactionDate }
@@ -43,8 +43,9 @@ object ExportUtils {
                 val typeStr = if (tx.type == Transaction.TYPE_YOU_GOT) "YOU GOT (Credit)" else "YOU GAVE (Debit)"
                 val noteClean = (tx.note ?: "").replace(",", ";")
                 val refClean = (tx.referenceNumber ?: "").replace(",", ";")
+                val hasImage = if (tx.attachmentPhoto != null) "Yes" else "No"
 
-                writer.append("$dateStr,${tx.transactionTime},${contact.name},$typeStr,${tx.amount},$currencySymbol,${tx.paymentMode},$refClean,$noteClean,$runningBalance\n")
+                writer.append("$dateStr,${tx.transactionTime},${contact.name},$typeStr,${tx.amount},$currencySymbol,${tx.paymentMode},$refClean,$noteClean,$hasImage,$runningBalance\n")
             }
             writer.flush()
             writer.close()
@@ -66,15 +67,16 @@ object ExportUtils {
             val file = File(context.cacheDir, fileName)
             val writer = FileWriter(file)
 
-            writer.append("Date,Time,Contact,Type,Amount ($currencySymbol),Payment Mode,Reference Number,Note\n")
+            writer.append("Date,Time,Contact,Type,Amount ($currencySymbol),Payment Mode,Reference Number,Note,Has Image\n")
             for (tx in transactions) {
                 val dateStr = DateTimeUtils.formatDate(tx.transactionDate)
                 val typeStr = if (tx.type == Transaction.TYPE_YOU_GOT) "YOU GOT" else "YOU GAVE"
-                val contactName = contactsMap[tx.contactId] ?: "Contact #${tx.contactId}"
+                val contactName = if (tx.contactId == null) "Quick Entry" else (contactsMap[tx.contactId] ?: "Contact #${tx.contactId}")
                 val noteClean = (tx.note ?: "").replace(",", ";")
                 val refClean = (tx.referenceNumber ?: "").replace(",", ";")
+                val hasImage = if (tx.attachmentPhoto != null) "Yes" else "No"
 
-                writer.append("$dateStr,${tx.transactionTime},$contactName,$typeStr,${tx.amount},$currencySymbol,${tx.paymentMode},$refClean,$noteClean\n")
+                writer.append("$dateStr,${tx.transactionTime},$contactName,$typeStr,${tx.amount},$currencySymbol,${tx.paymentMode},$refClean,$noteClean,$hasImage\n")
             }
             writer.flush()
             writer.close()
@@ -218,6 +220,26 @@ object ExportUtils {
                 textPaint.color = if (runningBalance >= 0) creditColor else debitColor
                 canvas.drawText("$currencySymbol ${CurrencyFormatter.formatRupee(Math.abs(runningBalance), false)}", 490f, y, textPaint)
 
+                if (tx.attachmentPhoto != null) {
+                    try {
+                        val uri = Uri.parse(tx.attachmentPhoto)
+                        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                            val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                            if (bitmap != null) {
+                                val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+                                val targetHeight = 40f
+                                val targetWidth = targetHeight * aspectRatio
+                                val scaledBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, targetWidth.toInt(), targetHeight.toInt(), true)
+                                y += 4f
+                                canvas.drawBitmap(scaledBitmap, 160f, y, null)
+                                y += 44f
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
                 y += 6f
                 paint.color = dividerColor
                 canvas.drawLine(40f, y, 555f, y, paint)
@@ -282,5 +304,211 @@ object ExportUtils {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(Intent.createChooser(intent, title))
+    }
+
+    // --- INCOME & EXPENSE MODULE EXPORTS ---
+
+    fun exportIncomeExpenseCsv(
+        context: Context,
+        entries: List<com.example.data.model.IncomeExpenseEntry>,
+        currencySymbol: String = CurrencyFormatter.getActiveCurrencySymbol()
+    ) {
+        try {
+            val fileName = "KhataTrack_Income_Expense_${System.currentTimeMillis()}.csv"
+            val file = File(context.cacheDir, fileName)
+            val writer = FileWriter(file)
+
+            writer.append("Date,Time,Type,Amount ($currencySymbol),Payment Mode,Transaction Reference,Category,Note,Has Image\n")
+            for (entry in entries) {
+                val dateStr = DateTimeUtils.formatDate(entry.transactionDate)
+                val typeStr = entry.type
+                val noteClean = (entry.note ?: "").replace(",", ";")
+                val refClean = (entry.transactionRefId ?: "").replace(",", ";")
+                val hasImage = if (entry.attachmentPhoto != null) "Yes" else "No"
+
+                writer.append("$dateStr,${entry.transactionTime},$typeStr,${entry.amount},$currencySymbol,${entry.paymentMode},$refClean,${entry.categoryTag},$noteClean,$hasImage\n")
+            }
+            writer.flush()
+            writer.close()
+
+            shareFile(context, file, "text/csv", "Share Income & Expense CSV")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun generateIncomeExpensePdf(
+        context: Context,
+        entries: List<com.example.data.model.IncomeExpenseEntry>,
+        currencySymbol: String = CurrencyFormatter.getActiveCurrencySymbol()
+    ): File? {
+        try {
+            val pdfDocument = PdfDocument()
+            val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+            val page = pdfDocument.startPage(pageInfo)
+            val canvas = page.canvas
+
+            val primaryColor = Color.parseColor("#121212")
+            val secondaryColor = Color.parseColor("#666666")
+            val creditColor = Color.parseColor("#2E7D32")
+            val debitColor = Color.parseColor("#C62828")
+            val headerBgColor = Color.parseColor("#F5F5F5")
+            val dividerColor = Color.parseColor("#E0E0E0")
+
+            val paint = Paint()
+            val textPaint = Paint().apply { isAntiAlias = true }
+
+            // Header Background
+            paint.color = headerBgColor
+            canvas.drawRect(0f, 0f, 595f, 100f, paint)
+
+            textPaint.apply {
+                color = primaryColor
+                textSize = 20f
+                isFakeBoldText = true
+            }
+            canvas.drawText("KhataTrack — Income & Expense Statement", 40f, 40f, textPaint)
+
+            textPaint.apply {
+                color = secondaryColor
+                textSize = 10f
+                isFakeBoldText = false
+            }
+            canvas.drawText("Generated on ${DateTimeUtils.formatDate(System.currentTimeMillis())}", 40f, 60f, textPaint)
+
+            // Table Header
+            var y = 130f
+            paint.color = headerBgColor
+            canvas.drawRect(40f, y - 15f, 555f, y + 15f, paint)
+
+            textPaint.apply {
+                color = primaryColor
+                textSize = 10f
+                isFakeBoldText = true
+            }
+            canvas.drawText("Date & Time", 48f, y, textPaint)
+            canvas.drawText("Category / Mode", 160f, y, textPaint)
+            canvas.drawText("Type", 330f, y, textPaint)
+            canvas.drawText("Amount", 450f, y, textPaint)
+
+            y += 20f
+
+            var totalIncome = 0.0
+            var totalExpense = 0.0
+
+            val sorted = entries.sortedBy { it.transactionDate }
+            for (entry in sorted) {
+                if (entry.type == com.example.data.model.IncomeExpenseEntry.TYPE_INCOME) totalIncome += entry.amount
+                else totalExpense += entry.amount
+
+                y += 18f
+                if (y > 750f) break
+
+                val dateStr = "${DateTimeUtils.formatDate(entry.transactionDate)} ${entry.transactionTime}"
+                textPaint.color = secondaryColor
+                textPaint.isFakeBoldText = false
+                canvas.drawText(dateStr, 48f, y, textPaint)
+
+                val details = "${entry.categoryTag} (${entry.paymentMode})"
+                canvas.drawText(details, 160f, y, textPaint)
+
+                if (entry.type == com.example.data.model.IncomeExpenseEntry.TYPE_INCOME) {
+                    textPaint.color = creditColor
+                    canvas.drawText("INCOME", 330f, y, textPaint)
+                    canvas.drawText("+ $currencySymbol ${CurrencyFormatter.formatRupee(entry.amount, false)}", 450f, y, textPaint)
+                } else {
+                    textPaint.color = debitColor
+                    canvas.drawText("EXPENSE", 330f, y, textPaint)
+                    canvas.drawText("- $currencySymbol ${CurrencyFormatter.formatRupee(entry.amount, false)}", 450f, y, textPaint)
+                }
+
+                // Image embedding
+                if (entry.attachmentPhoto != null) {
+                    try {
+                        val uri = Uri.parse(entry.attachmentPhoto)
+                        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                            val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                            if (bitmap != null) {
+                                val aspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+                                val targetHeight = 35f
+                                val targetWidth = targetHeight * aspectRatio
+                                val scaledBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, targetWidth.toInt(), targetHeight.toInt(), true)
+                                y += 4f
+                                canvas.drawBitmap(scaledBitmap, 160f, y, null)
+                                y += 38f
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                y += 6f
+                paint.color = dividerColor
+                canvas.drawLine(40f, y, 555f, y, paint)
+            }
+
+            // Summary Footer
+            y += 25f
+            paint.color = headerBgColor
+            canvas.drawRect(40f, y, 555f, y + 50f, paint)
+
+            textPaint.apply {
+                color = primaryColor
+                textSize = 10f
+                isFakeBoldText = true
+            }
+            canvas.drawText("Total Income: + $currencySymbol ${CurrencyFormatter.formatRupee(totalIncome, false)}", 60f, y + 20f, textPaint)
+            canvas.drawText("Total Expense: - $currencySymbol ${CurrencyFormatter.formatRupee(totalExpense, false)}", 240f, y + 20f, textPaint)
+
+            val net = totalIncome - totalExpense
+            textPaint.color = if (net >= 0) creditColor else debitColor
+            canvas.drawText("Net: $currencySymbol ${CurrencyFormatter.formatRupee(net, false)}", 420f, y + 20f, textPaint)
+
+            pdfDocument.finishPage(page)
+
+            val fileName = "KhataTrack_Income_Expense_Statement.pdf"
+            val file = File(context.cacheDir, fileName)
+            val outputStream = FileOutputStream(file)
+            pdfDocument.writeTo(outputStream)
+            outputStream.close()
+            pdfDocument.close()
+
+            shareFile(context, file, "application/pdf", "Share Statement PDF")
+            return file
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+
+    fun exportIncomeExpenseJson(
+        context: Context,
+        entries: List<com.example.data.model.IncomeExpenseEntry>
+    ) {
+        try {
+            val jsonArray = org.json.JSONArray()
+            for (e in entries) {
+                val obj = org.json.JSONObject().apply {
+                    put("id", e.id)
+                    put("type", e.type)
+                    put("amount", e.amount)
+                    put("currency", e.currency)
+                    put("transactionDate", e.transactionDate)
+                    put("transactionTime", e.transactionTime)
+                    put("paymentMode", e.paymentMode)
+                    put("transactionRefId", e.transactionRefId ?: "")
+                    put("categoryTag", e.categoryTag)
+                    put("note", e.note ?: "")
+                }
+                jsonArray.put(obj)
+            }
+            val fileName = "KhataTrack_IncomeExpense_Module_Backup.json"
+            val file = File(context.cacheDir, fileName)
+            file.writeText(jsonArray.toString(2))
+            shareFile(context, file, "application/json", "Share Module JSON Backup")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

@@ -21,8 +21,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+import com.example.data.model.IncomeExpenseEntry
+
 enum class Screen {
     HOME,
+    INCOME_EXPENSE,
     AI_HUB,
     REMINDERS,
     REPORTS,
@@ -39,7 +42,8 @@ enum class Screen {
 enum class FilterOption {
     ALL,
     YOU_GET,
-    YOU_PAY
+    YOU_PAY,
+    QUICK_ENTRIES
 }
 
 enum class ReportDateRange {
@@ -76,7 +80,8 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         reminderDao = db.reminderDao(),
         traceLogDao = db.traceLogDao(),
         categoryDao = db.categoryDao(),
-        paymentModeDao = db.paymentModeDao()
+        paymentModeDao = db.paymentModeDao(),
+        incomeExpenseEntryDao = db.incomeExpenseEntryDao()
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -120,7 +125,17 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
             FilterOption.ALL -> list
             FilterOption.YOU_GET -> list.filter { it.netBalance > 0 }
             FilterOption.YOU_PAY -> list.filter { it.netBalance < 0 }
+            FilterOption.QUICK_ENTRIES -> emptyList()
         }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    // Quick Entries
+    val quickEntries: StateFlow<List<Transaction>> = repository.allTransactions.map { list ->
+        list.filter { it.contactId == null }.sortedByDescending { it.transactionDate }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -143,6 +158,14 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
 
     // All transactions flow for reports
     val allTransactions: StateFlow<List<Transaction>> = repository.allTransactions
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    // All Income & Expense entries
+    val allIncomeExpenseEntries: StateFlow<List<IncomeExpenseEntry>> = repository.allIncomeExpenseEntries
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -193,6 +216,27 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
                 item.contact.name.lowercase().contains(q) ||
                 (item.contact.mobileNumber ?: "").lowercase().contains(q) ||
                 (item.contact.addressNotes ?: "").lowercase().contains(q)
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    // Global search transactions matching query
+    val transactionSearchResults: StateFlow<List<Transaction>> = combine(
+        repository.allTransactions,
+        _uiState
+    ) { list, state ->
+        val q = state.searchQuery.trim().lowercase()
+        if (q.isEmpty()) {
+            emptyList()
+        } else {
+            list.filter { item ->
+                (item.note ?: "").lowercase().contains(q) ||
+                item.categoryTag.lowercase().contains(q) ||
+                (item.referenceNumber ?: "").lowercase().contains(q)
             }
         }
     }.stateIn(
@@ -357,39 +401,49 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
         note: String?,
         dueDate: Long?,
         referenceNumber: String?,
-        editingTxId: Long?
+        editingTxId: Long?,
+        attachmentPhotoUri: String? = null,
+        contactIdOverride: Long? = _uiState.value.activeContactId
     ) {
-        val contactId = _uiState.value.activeContactId ?: return
         viewModelScope.launch {
-            val contact = repository.getContactByIdSync(contactId)
-            val cName = contact?.name ?: ""
+            try {
+                val cName = if (contactIdOverride != null) {
+                    repository.getContactByIdSync(contactIdOverride)?.name ?: ""
+                } else {
+                    ""
+                }
 
-            if (editingTxId != null) {
-                val oldTx = repository.getTransactionById(editingTxId)
-                if (oldTx != null) {
-                    val updated = oldTx.copy(
-                        amount = amount,
+                if (editingTxId != null) {
+                    val oldTx = repository.getTransactionById(editingTxId)
+                    if (oldTx != null) {
+                        val updated = oldTx.copy(
+                            amount = amount,
+                            type = type,
+                            paymentMode = paymentMode,
+                            note = note,
+                            referenceNumber = referenceNumber,
+                            collectionDueDate = dueDate,
+                            attachmentPhoto = attachmentPhotoUri ?: oldTx.attachmentPhoto
+                        )
+                        repository.updateTransaction(updated, oldTx, cName)
+                        showSnackbar("Transaction updated")
+                    }
+                } else {
+                    val tx = Transaction(
+                        contactId = contactIdOverride,
                         type = type,
+                        amount = amount,
                         paymentMode = paymentMode,
                         note = note,
                         referenceNumber = referenceNumber,
-                        collectionDueDate = dueDate
+                        collectionDueDate = dueDate,
+                        attachmentPhoto = attachmentPhotoUri
                     )
-                    repository.updateTransaction(updated, oldTx, cName)
-                    showSnackbar("Transaction updated")
+                    repository.addTransaction(tx, cName)
+                    showSnackbar("Transaction added successfully")
                 }
-            } else {
-                val tx = Transaction(
-                    contactId = contactId,
-                    type = type,
-                    amount = amount,
-                    paymentMode = paymentMode,
-                    note = note,
-                    referenceNumber = referenceNumber,
-                    collectionDueDate = dueDate
-                )
-                repository.addTransaction(tx, cName)
-                showSnackbar("Transaction added successfully")
+            } catch (e: Exception) {
+                showSnackbar("Error saving transaction: ${e.message}")
             }
         }
     }
@@ -496,6 +550,39 @@ class KhataViewModel(application: Application) : AndroidViewModel(application) {
                 lastDeletedContact = null,
                 snackbarMessage = "Contact restored"
             )
+        }
+    }
+
+    fun addIncomeExpenseEntry(entry: IncomeExpenseEntry) {
+        viewModelScope.launch {
+            try {
+                repository.insertIncomeExpenseEntry(entry)
+                showSnackbar("Entry saved successfully")
+            } catch (e: Exception) {
+                showSnackbar("Failed to save entry: ${e.message}")
+            }
+        }
+    }
+
+    fun updateIncomeExpenseEntry(entry: IncomeExpenseEntry) {
+        viewModelScope.launch {
+            try {
+                repository.updateIncomeExpenseEntry(entry)
+                showSnackbar("Entry updated successfully")
+            } catch (e: Exception) {
+                showSnackbar("Failed to update entry: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteIncomeExpenseEntry(id: Long) {
+        viewModelScope.launch {
+            try {
+                repository.softDeleteIncomeExpenseEntry(id)
+                showSnackbar("Entry moved to Trash")
+            } catch (e: Exception) {
+                showSnackbar("Failed to delete entry: ${e.message}")
+            }
         }
     }
 

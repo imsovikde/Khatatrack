@@ -20,7 +20,7 @@ import androidx.room.PrimaryKey
 data class Transaction(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val contactId: Long,
+    val contactId: Long? = null,
     val type: String, // "YOU_GAVE" (Debit) or "YOU_GOT" (Credit)
     val amount: Double,
     val transactionDate: Long = System.currentTimeMillis(),

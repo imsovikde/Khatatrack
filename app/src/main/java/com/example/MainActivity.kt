@@ -36,6 +36,7 @@ import com.example.ui.screens.CategoryPaymentModeScreen
 import com.example.ui.screens.ContactLedgerScreen
 import com.example.ui.screens.CurrencySelectionBottomSheet
 import com.example.ui.screens.HomeScreen
+import com.example.ui.screens.IncomeExpenseScreen
 import com.example.ui.screens.RemindersScreen
 import com.example.ui.screens.ReportsScreen
 import com.example.ui.screens.SearchScreen
@@ -112,6 +113,7 @@ class MainActivity : ComponentActivity() {
                     val currentScreen = uiState.currentScreen
                     val showBottomNav = currentScreen in listOf(
                         Screen.HOME,
+                        Screen.INCOME_EXPENSE,
                         Screen.REMINDERS,
                         Screen.REPORTS,
                         Screen.SETTINGS
@@ -123,7 +125,7 @@ class MainActivity : ComponentActivity() {
                             if (showBottomNav) {
                                 val currentRoute = when (currentScreen) {
                                     Screen.HOME -> NavDestination.HOME.route
-                                    Screen.AI_HUB -> NavDestination.AI_HUB.route
+                                    Screen.INCOME_EXPENSE -> NavDestination.INCOME_EXPENSE.route
                                     Screen.REMINDERS -> NavDestination.REMINDERS.route
                                     Screen.REPORTS -> NavDestination.REPORTS.route
                                     Screen.SETTINGS -> NavDestination.SETTINGS.route
@@ -134,7 +136,7 @@ class MainActivity : ComponentActivity() {
                                     onNavigate = { destination ->
                                         when (destination) {
                                             NavDestination.HOME -> viewModel.navigateTo(Screen.HOME)
-                                            NavDestination.AI_HUB -> viewModel.navigateTo(Screen.AI_HUB)
+                                            NavDestination.INCOME_EXPENSE -> viewModel.navigateTo(Screen.INCOME_EXPENSE)
                                             NavDestination.REMINDERS -> viewModel.navigateTo(Screen.REMINDERS)
                                             NavDestination.REPORTS -> viewModel.navigateTo(Screen.REPORTS)
                                             NavDestination.SETTINGS -> viewModel.navigateTo(Screen.SETTINGS)
@@ -153,17 +155,31 @@ class MainActivity : ComponentActivity() {
                         ) {
                             when (currentScreen) {
                                 Screen.HOME -> {
+                                    val quickEntries by viewModel.quickEntries.collectAsStateWithLifecycle()
                                     HomeScreen(
                                         summaryTotals = summaryTotals,
                                         contacts = homeContacts,
+                                        quickEntries = quickEntries,
                                         currentFilter = uiState.homeFilter,
                                         onFilterSelect = { viewModel.setFilter(it) },
                                         onContactClick = { contactId -> viewModel.openContactDetail(contactId) },
                                         onAddContactClick = { viewModel.openAddContact() },
                                         onQuickVoiceClick = { isQuickVoiceSheetOpen = true },
                                         onSearchClick = { viewModel.navigateTo(Screen.SEARCH) },
+                                        onNavigateToIncomeExpense = { viewModel.navigateTo(Screen.INCOME_EXPENSE) },
                                         onTogglePin = { contactId, isPinned, name -> viewModel.togglePinContact(contactId, isPinned, name) },
                                         onDeleteContact = { contactId, name -> viewModel.softDeleteContact(contactId, name) }
+                                    )
+                                }
+
+                                Screen.INCOME_EXPENSE -> {
+                                    val ieEntries by viewModel.allIncomeExpenseEntries.collectAsStateWithLifecycle()
+                                    IncomeExpenseScreen(
+                                        entries = ieEntries,
+                                        onAddEntry = { viewModel.addIncomeExpenseEntry(it) },
+                                        onUpdateEntry = { viewModel.updateIncomeExpenseEntry(it) },
+                                        onDeleteEntry = { viewModel.deleteIncomeExpenseEntry(it) },
+                                        onBack = { viewModel.navigateTo(Screen.HOME) }
                                     )
                                 }
 
@@ -230,8 +246,10 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 Screen.REPORTS -> {
+                                    val ieEntries by viewModel.allIncomeExpenseEntries.collectAsStateWithLifecycle()
                                     ReportsScreen(
                                         transactions = allTransactions,
+                                        incomeExpenseEntries = ieEntries,
                                         selectedRange = uiState.reportRange,
                                         onRangeSelect = { viewModel.setReportRange(it) }
                                     )
@@ -242,6 +260,7 @@ class MainActivity : ComponentActivity() {
                                         query = uiState.searchQuery,
                                         onQueryChange = { viewModel.setSearchQuery(it) },
                                         searchResults = searchResults,
+                                        transactionSearchResults = viewModel.transactionSearchResults.collectAsStateWithLifecycle().value,
                                         onBackClick = { viewModel.navigateTo(Screen.HOME) },
                                         onContactClick = { contactId -> viewModel.openContactDetail(contactId) }
                                     )
@@ -302,18 +321,18 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // Add / Edit Transaction Bottom Sheet
-                        if (isAddTransactionSheetOpen && activeContact != null) {
+                        if (isAddTransactionSheetOpen) {
                             AddTransactionBottomSheet(
                                 sheetState = sheetState,
                                 initialType = transactionSheetInitialType,
-                                contactName = activeContact!!.name,
+                                contactName = activeContact?.name ?: "",
                                 contactsList = homeContacts.map { it.contact },
                                 editingTransaction = editingTransactionForSheet,
                                 onDismiss = {
                                     isAddTransactionSheetOpen = false
                                     editingTransactionForSheet = null
                                 },
-                                onSave = { amount, type, paymentMode, note, dueDate, referenceNumber, editingTxId ->
+                                onSave = { amount, type, paymentMode, note, dueDate, referenceNumber, editingTxId, photoUri, contactIdOverride ->
                                     viewModel.saveOrUpdateTransaction(
                                         amount = amount,
                                         type = type,
@@ -321,7 +340,9 @@ class MainActivity : ComponentActivity() {
                                         note = note,
                                         dueDate = dueDate,
                                         referenceNumber = referenceNumber,
-                                        editingTxId = editingTxId
+                                        editingTxId = editingTxId,
+                                        attachmentPhotoUri = photoUri,
+                                        contactIdOverride = contactIdOverride ?: activeContact?.id
                                     )
                                     isAddTransactionSheetOpen = false
                                     editingTransactionForSheet = null

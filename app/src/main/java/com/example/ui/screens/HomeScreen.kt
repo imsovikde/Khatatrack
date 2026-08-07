@@ -72,17 +72,22 @@ import com.example.ui.theme.TitleStyle
 import com.example.ui.viewmodel.FilterOption
 import com.example.util.CurrencyFormatter
 
+import com.example.data.model.Transaction
+import com.example.ui.components.TransactionRow
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     summaryTotals: SummaryTotals,
     contacts: List<ContactWithBalance>,
+    quickEntries: List<Transaction>,
     currentFilter: FilterOption,
     onFilterSelect: (FilterOption) -> Unit,
     onContactClick: (Long) -> Unit,
     onAddContactClick: () -> Unit,
     onQuickVoiceClick: () -> Unit = {},
     onSearchClick: () -> Unit,
+    onNavigateToIncomeExpense: (() -> Unit)? = null,
     onTogglePin: ((Long, Boolean, String) -> Unit)? = null,
     onDeleteContact: ((Long, String) -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -254,6 +259,44 @@ fun HomeScreen(
                 }
             }
 
+            // INCOME & EXPENSE TRACKER LINK CARD
+            Card(
+                shape = KhataTheme.shapes.md,
+                colors = CardDefaults.cardColors(containerColor = colors.bgSurfaceElevated),
+                elevation = CardDefaults.cardElevation(defaultElevation = KhataTheme.elevation.restingCard),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = KhataTheme.spacing.md, vertical = KhataTheme.spacing.xs)
+                    .clickable { onNavigateToIncomeExpense?.invoke() }
+                    .testTag("income_expense_tracker_card")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = KhataTheme.spacing.md, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Income & Expense Tracker →",
+                            style = BodyStyle.copy(fontWeight = FontWeight.Bold),
+                            color = colors.textPrimary
+                        )
+                        Text(
+                            text = "Personal money in/out without contact ledgers",
+                            style = CaptionStyle,
+                            color = colors.textSecondary
+                        )
+                    }
+                    Text(
+                        text = "OPEN",
+                        style = LabelStyle.copy(fontWeight = FontWeight.Bold),
+                        color = colors.credit
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(KhataTheme.spacing.xs))
 
             // FRICTIONLESS VOICE ENTRY BANNER
@@ -337,7 +380,7 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 SemanticChip(
-                    text = "All (${contacts.size})",
+                    text = "All",
                     isSelected = currentFilter == FilterOption.ALL,
                     onClick = { onFilterSelect(FilterOption.ALL) },
                     testTag = "filter_all"
@@ -358,21 +401,53 @@ fun HomeScreen(
                     onClick = { onFilterSelect(FilterOption.YOU_PAY) },
                     testTag = "filter_you_pay"
                 )
+                SemanticChip(
+                    text = "Quick Entries",
+                    isSelected = currentFilter == FilterOption.QUICK_ENTRIES,
+                    onClick = { onFilterSelect(FilterOption.QUICK_ENTRIES) },
+                    testTag = "filter_quick_entries"
+                )
             }
 
             Spacer(modifier = Modifier.height(KhataTheme.spacing.sm))
 
-            // Contact List with Pinned Section Header
-            if (contacts.isEmpty()) {
-                EmptyState(
-                    message = if (currentFilter == FilterOption.ALL) "No contacts added yet" else "No matching balances",
-                    subMessage = "Tap the '+' button below to create your first ledger record.",
-                    icon = Icons.Default.People,
-                    actionLabel = "Add Contact",
-                    onAction = onAddContactClick,
-                    modifier = Modifier.weight(1f)
-                )
+            if (currentFilter == FilterOption.QUICK_ENTRIES) {
+                if (quickEntries.isEmpty()) {
+                    EmptyState(
+                        message = "No Quick Entries yet",
+                        subMessage = "Add standalone transactions that don't belong to a specific contact.",
+                        icon = Icons.Default.People,
+                        actionLabel = "Add Quick Entry",
+                        onAction = {},
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        items(quickEntries, key = { "quick_${it.id}" }) { item ->
+                            TransactionRow(
+                                transaction = item,
+                                highlightQuery = "",
+                                onClick = {}
+                            )
+                        }
+                    }
+                }
             } else {
+                // Contact List with Pinned Section Header
+                if (contacts.isEmpty()) {
+                    EmptyState(
+                        message = if (currentFilter == FilterOption.ALL) "No contacts added yet" else "No matching balances",
+                        subMessage = "Tap the '+' button below to create your first ledger record.",
+                        icon = Icons.Default.People,
+                        actionLabel = "Add Contact",
+                        onAction = onAddContactClick,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -429,6 +504,7 @@ fun HomeScreen(
                             )
                         }
                     }
+                }
                 }
             }
         }
