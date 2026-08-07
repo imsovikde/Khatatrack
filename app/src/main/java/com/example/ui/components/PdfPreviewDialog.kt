@@ -66,19 +66,19 @@ fun PdfPreviewDialog(
                     modifier = Modifier
                         .weight(1f)
                         .padding(16.dp)
-                        .background(Color.White)
+                        .background(colors.surface)
                 ) {
                     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("KhataTrack", fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 18.sp)
-                            Text("Account Statement", color = Color.Gray, fontSize = 12.sp)
+                            Text("KhataTrack", fontWeight = FontWeight.Bold, color = colors.textPrimary, fontSize = 18.sp)
+                            Text("Account Statement", color = colors.textSecondary, fontSize = 12.sp)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        HorizontalDivider(color = Color.LightGray)
+                        HorizontalDivider(color = colors.divider)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(contactName, fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 14.sp)
+                        Text(contactName, fontWeight = FontWeight.Bold, color = colors.textPrimary, fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Generated on: ${DateTimeUtils.formatDate(System.currentTimeMillis())}", color = Color.Gray, fontSize = 10.sp)
+                        Text("Generated on: ${DateTimeUtils.formatDate(System.currentTimeMillis())}", color = colors.textSecondary, fontSize = 10.sp)
                         
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -86,14 +86,14 @@ fun PdfPreviewDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color(0xFFF5F5F7))
+                                .background(colors.bgSurface)
                                 .padding(8.dp)
                         ) {
-                            Text("Date", modifier = Modifier.weight(1.5f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                            Text("Details", modifier = Modifier.weight(2f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                            Text("Gave(-)", modifier = Modifier.weight(1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                            Text("Got(+)", modifier = Modifier.weight(1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                            Text("Bal", modifier = Modifier.weight(1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                            Text("Date", modifier = Modifier.weight(1.5f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                            Text("Details", modifier = Modifier.weight(2f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                            Text("Gave(-)", modifier = Modifier.weight(1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                            Text("Got(+)", modifier = Modifier.weight(1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                            Text("Bal", modifier = Modifier.weight(1f), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
                         }
 
                         // Table Body
@@ -116,13 +116,13 @@ fun PdfPreviewDialog(
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp, horizontal = 8.dp)
                                 ) {
-                                    Text(DateTimeUtils.formatDate(tx.transactionDate), modifier = Modifier.weight(1.5f), fontSize = 9.sp, color = Color.DarkGray)
-                                    Text(tx.paymentMode + if (!tx.note.isNullOrEmpty()) " (${tx.note})" else "", modifier = Modifier.weight(2f), fontSize = 9.sp, color = Color.DarkGray, maxLines = 1)
-                                    Text(debitStr, modifier = Modifier.weight(1f), fontSize = 9.sp, color = Color(0xFFB71C1C))
-                                    Text(creditStr, modifier = Modifier.weight(1f), fontSize = 9.sp, color = Color(0xFF1B5E20))
-                                    Text(CurrencyFormatter.formatRupee(Math.abs(bal)), modifier = Modifier.weight(1f), fontSize = 9.sp, color = if(bal>=0) Color(0xFF1B5E20) else Color(0xFFB71C1C))
+                                    Text(DateTimeUtils.formatDate(tx.transactionDate), modifier = Modifier.weight(1.5f), fontSize = 9.sp, color = colors.textSecondary)
+                                    Text(tx.paymentMode + if (!tx.note.isNullOrEmpty()) " (${tx.note})" else "", modifier = Modifier.weight(2f), fontSize = 9.sp, color = colors.textSecondary, maxLines = 1)
+                                    Text(debitStr, modifier = Modifier.weight(1f), fontSize = 9.sp, color = colors.debit)
+                                    Text(creditStr, modifier = Modifier.weight(1f), fontSize = 9.sp, color = colors.credit)
+                                    Text(CurrencyFormatter.formatRupee(Math.abs(bal)), modifier = Modifier.weight(1f), fontSize = 9.sp, color = if(bal>=0) colors.credit else colors.debit)
                                 }
-                                HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
+                                HorizontalDivider(color = colors.divider, thickness = 0.5.dp)
                             }
                         }
 
@@ -133,21 +133,21 @@ fun PdfPreviewDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color(0xFFF5F5F7))
+                                .background(colors.bgSurface)
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text("Total You Gave", fontSize = 10.sp, color = Color.Gray)
-                                Text(CurrencyFormatter.formatRupee(tg), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB71C1C))
+                                Text("Total You Gave", fontSize = 10.sp, color = colors.textSecondary)
+                                Text(CurrencyFormatter.formatRupee(tg), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.debit)
                             }
                             Column {
-                                Text("Total You Got", fontSize = 10.sp, color = Color.Gray)
-                                Text(CurrencyFormatter.formatRupee(tc), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
+                                Text("Total You Got", fontSize = 10.sp, color = colors.textSecondary)
+                                Text(CurrencyFormatter.formatRupee(tc), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.credit)
                             }
                             Column {
-                                Text("Net Balance", fontSize = 10.sp, color = Color.Gray)
-                                Text(CurrencyFormatter.formatRupee(Math.abs(net)), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (net>=0) Color(0xFF1B5E20) else Color(0xFFB71C1C))
+                                Text("Net Balance", fontSize = 10.sp, color = colors.textSecondary)
+                                Text(CurrencyFormatter.formatRupee(Math.abs(net)), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (net>=0) colors.credit else colors.debit)
                             }
                         }
                     }

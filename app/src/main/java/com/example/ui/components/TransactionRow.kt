@@ -150,7 +150,7 @@ fun TransactionRow(
                             color = colors.textSecondary
                         )
                     }
-                    if (transaction.attachmentPhoto != null) {
+                    if (!transaction.attachmentPhoto.isNullOrBlank()) {
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
                             imageVector = Icons.Default.AttachFile,
@@ -192,7 +192,7 @@ fun TransactionRow(
             }
         }
 
-        if (transaction.attachmentPhoto != null) {
+        if (!transaction.attachmentPhoto.isNullOrBlank()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

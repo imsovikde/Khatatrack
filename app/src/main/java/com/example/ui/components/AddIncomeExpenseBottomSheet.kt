@@ -523,9 +523,9 @@ fun AddIncomeExpenseBottomSheet(
                     Icon(Icons.Default.AttachFile, contentDescription = "Attach Image", tint = colors.textSecondary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (attachmentUri != null) "Photo Attached ✓" else "Attach Bill Photo",
+                        text = if (!attachmentUri.isNullOrBlank()) "Photo Attached 📸" else "Attach Bill Photo",
                         style = CaptionStyle,
-                        color = if (attachmentUri != null) colors.credit else colors.textSecondary
+                        color = if (!attachmentUri.isNullOrBlank()) colors.credit else colors.textSecondary
                     )
                 }
 

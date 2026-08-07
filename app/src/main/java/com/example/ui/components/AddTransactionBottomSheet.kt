@@ -666,7 +666,7 @@ fun AddTransactionBottomSheet(
                         }
                     }
                 )
-                if (attachmentPhotoUri != null) {
+                if (!attachmentPhotoUri.isNullOrBlank()) {
                     Box(modifier = Modifier.size(40.dp)) {
                         AsyncImage(
                             model = attachmentPhotoUri,

@@ -22,6 +22,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.ui.theme.KhataTheme
 import coil.compose.AsyncImage
 
 @Composable
@@ -29,6 +30,9 @@ fun ImagePreviewDialog(
     photoUri: String,
     onDismiss: () -> Unit
 ) {
+    val colors = KhataTheme.colors
+    if (photoUri.isBlank()) return
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -40,7 +44,7 @@ fun ImagePreviewDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.95f))
+                .background(colors.textPrimary.copy(alpha = 0.95f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -68,12 +72,12 @@ fun ImagePreviewDialog(
                     .padding(16.dp)
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.5f))
+                    .background(colors.textPrimary.copy(alpha = 0.5f))
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close",
-                    tint = Color.White
+                    tint = colors.surface
                 )
             }
         }
