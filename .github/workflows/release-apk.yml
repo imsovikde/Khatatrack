@@ -86,6 +86,7 @@ jobs:
           echo "BRANCH_SLUG=${BRANCH_SLUG}" >> $GITHUB_ENV
           echo "RELEASE_TAG=${VERSION_TAG}" >> $GITHUB_ENV
           echo "RELEASE_TITLE=${RELEASE_TITLE}" >> $GITHUB_ENV
+          echo "CLEAN_TITLE=${CLEAN_TITLE}" >> $GITHUB_ENV
           echo "APK_FILE=${APK_NAME}" >> $GITHUB_ENV
           echo "APK_SIZE_BYTES=${FILE_SIZE}" >> $GITHUB_ENV
 
@@ -180,3 +181,18 @@ jobs:
             --target "${RAW_BRANCH}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📝 Sync Live Release Badges & Real-Time Data to README
+        run: |
+          if [ "${RAW_BRANCH}" = "main" ]; then
+            sed -i -E "s/Latest%20Release-v[0-9\.]*/Latest%20Release-${RELEASE_TAG}/g" README.md
+            sed -i -E "s/Download Latest APK \(v[0-9\.]*\)/Download Latest APK (${RELEASE_TAG})/g" README.md
+
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add README.md
+            if ! git diff --staged --quiet; then
+              git commit -m "docs: sync live release ${RELEASE_TAG} metadata to README [skip ci]"
+              git push origin HEAD:${RAW_BRANCH}
+            fi
+          fi
